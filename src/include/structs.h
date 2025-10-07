@@ -177,7 +177,8 @@ enum screensaver_mode_e {
     DISABLED   = 0,
     PONG       = 1,
     JITTER     = 2,
-    MAX_SS_VAL = JITTER,
+    MIRROR     = 3,
+    MAX_SS_VAL = MIRROR,
 };
 
 extern const config_t default_config;

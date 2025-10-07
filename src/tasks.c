@@ -80,12 +80,24 @@ mouse_report_t *screensaver_jitter(device_t *state) {
     return &report;
 }
 
+mouse_report_t *screensaver_mirror(device_t *state) {
+    /* Mirror mode: jitter when the OTHER board is active */
+    static mouse_report_t report = {
+        .y = JITTER_DISTANCE,
+        .mode = RELATIVE,
+    };
+    report.y = -report.y;
+
+    return &report;
+}
+
 /* Have something fun and entertaining when idle. */
 void screensaver_task(device_t *state) {
     const uint32_t delays[] = {
         0,        /* DISABLED, unused index 0 */
         5000,     /* PONG, move mouse every 5 ms for a high framerate */
         10000000, /* JITTER, once every 10 sec is more than enough */
+        1000000,  /* MIRROR, check every 1 sec if other board is active */
     };
     static int last_pointer_move = 0;
     screensaver_t *screensaver = &state->config.output[BOARD_ROLE].screensaver;
@@ -94,6 +106,36 @@ void screensaver_task(device_t *state) {
     /* If we're not enabled, nothing to do here. */
     if (screensaver->mode == DISABLED)
         return;
+
+    /* MIRROR mode has special logic - it activates based on OTHER board activity */
+    if (screensaver->mode == MIRROR) {
+        /* Check if other board had activity recently (within last 5 seconds) */
+        uint64_t other_board_inactivity = time_us_64() - state->last_activity[1 - BOARD_ROLE];
+
+        /* If other board is idle, don't jiggle */
+        if (other_board_inactivity > 5000000)
+            return;
+
+        /* Only run on inactive output */
+        if (CURRENT_BOARD_IS_ACTIVE_OUTPUT)
+            return;
+
+        /* Check if it's time to move yet */
+        if (time_us_32() - last_pointer_move < delays[MIRROR])
+            return;
+
+        /* Return if we're not connected or the host is suspended */
+        if (!tud_ready())
+            return;
+
+        /* Generate jitter movement */
+        mouse_report_t *report = screensaver_mirror(state);
+        queue_mouse_report(report, state);
+        last_pointer_move = time_us_32();
+        return;
+    }
+
+    /* Standard screensaver modes (PONG, JITTER) */
 
     /* System is still not idle for long enough to activate or screensaver mode is not supported */
     if (inactivity_period < screensaver->idle_time_us || screensaver->mode > MAX_SS_VAL)
