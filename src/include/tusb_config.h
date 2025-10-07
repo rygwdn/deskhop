@@ -88,6 +88,8 @@
  *  Settings for the CDC (Communication Device Class) for serial communication.
  *==============================================================================*/
 
+extern int dh_debug_printf(const char *format, ...);
+
 #ifdef DH_DEBUG
 
 // Enable CDC class for debugging over serial.
@@ -95,7 +97,6 @@
 
 // Use a custom debug printf function.
 #define CFG_TUSB_DEBUG_PRINTF dh_debug_printf
-extern int dh_debug_printf(const char *__restrict __format, ...);
 
 // Buffer sizes for CDC RX and TX.
 #define CFG_TUD_CDC_RX_BUFSIZE 64

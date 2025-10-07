@@ -10,6 +10,7 @@
  */
 #include "hid_report.h"
 #include "main.h"
+#include "hid_descriptor_dump.h"
 
 /* Given a value struct with size and offset in bits, find and return a value from the HID report */
 int32_t get_report_value(uint8_t *report, int len, report_val_t *val) {
@@ -159,17 +160,18 @@ static uint8_t *get_next_keyboard_id(hid_interface_t *iface) {
     return &iface->keyboards[MAX_KEYBOARDS - 1].report_id;
 }
 
-
 void extract_data(hid_interface_t *iface, report_val_t *val) {
     const usage_map_t map[] = {
-        {.usage_page   = HID_USAGE_PAGE_BUTTON,
+        {.name         = "BUTTONS",
+         .usage_page   = HID_USAGE_PAGE_BUTTON,
          .global_usage = HID_USAGE_DESKTOP_MOUSE,
          .handler      = handle_buttons,
          .receiver     = process_mouse_report,
          .dst          = &iface->mouse.buttons,
          .get_id       = get_mouse_id},
 
-        {.usage_page   = HID_USAGE_PAGE_DESKTOP,
+        {.name         = "MOVE_X",
+         .usage_page   = HID_USAGE_PAGE_DESKTOP,
          .global_usage = HID_USAGE_DESKTOP_MOUSE,
          .usage        = HID_USAGE_DESKTOP_X,
          .handler      = _store,
@@ -177,7 +179,8 @@ void extract_data(hid_interface_t *iface, report_val_t *val) {
          .dst          = &iface->mouse.move_x,
          .get_id       = get_mouse_id},
 
-        {.usage_page   = HID_USAGE_PAGE_DESKTOP,
+        {.name         = "MOVE_Y",
+         .usage_page   = HID_USAGE_PAGE_DESKTOP,
          .global_usage = HID_USAGE_DESKTOP_MOUSE,
          .usage        = HID_USAGE_DESKTOP_Y,
          .handler      = _store,
@@ -185,7 +188,8 @@ void extract_data(hid_interface_t *iface, report_val_t *val) {
          .dst          = &iface->mouse.move_y,
          .get_id       = get_mouse_id},
 
-        {.usage_page   = HID_USAGE_PAGE_DESKTOP,
+        {.name         = "WHEEL",
+         .usage_page   = HID_USAGE_PAGE_DESKTOP,
          .global_usage = HID_USAGE_DESKTOP_MOUSE,
          .usage        = HID_USAGE_DESKTOP_WHEEL,
          .handler      = _store,
@@ -193,7 +197,8 @@ void extract_data(hid_interface_t *iface, report_val_t *val) {
          .dst          = &iface->mouse.wheel,
          .get_id       = get_mouse_id},
 
-        {.usage_page   = HID_USAGE_PAGE_CONSUMER,
+        {.name         = "PAN",
+         .usage_page   = HID_USAGE_PAGE_CONSUMER,
          .global_usage = HID_USAGE_DESKTOP_MOUSE,
          .usage        = HID_USAGE_CONSUMER_AC_PAN,
          .handler      = _store,
@@ -201,20 +206,23 @@ void extract_data(hid_interface_t *iface, report_val_t *val) {
          .dst          = &iface->mouse.pan,
          .get_id       = get_mouse_id},
 
-        {.usage_page   = HID_USAGE_PAGE_KEYBOARD,
+        {.name         = "KEYBOARD",
+         .usage_page   = HID_USAGE_PAGE_KEYBOARD,
          .global_usage = HID_USAGE_DESKTOP_KEYBOARD,
          .handler      = handle_keyboard_descriptor_values,
          .receiver     = process_keyboard_report,
          .get_id       = get_next_keyboard_id},
 
-        {.usage_page   = HID_USAGE_PAGE_CONSUMER,
+        {.name         = "CONSUMER",
+         .usage_page   = HID_USAGE_PAGE_CONSUMER,
          .global_usage = HID_USAGE_CONSUMER_CONTROL,
          .handler      = handle_consumer_control_values,
          .receiver     = process_consumer_report,
          .dst          = &iface->consumer.val,
          .get_id       = get_consumer_id},
 
-        {.usage_page   = HID_USAGE_PAGE_DESKTOP,
+        {.name         = "SYSTEM",
+         .usage_page   = HID_USAGE_PAGE_DESKTOP,
          .global_usage = HID_USAGE_DESKTOP_SYSTEM_CONTROL,
          .handler      = _store,
          .receiver     = process_system_report,
@@ -236,8 +244,10 @@ void extract_data(hid_interface_t *iface, report_val_t *val) {
 
             hay->handler(val, hay->dst, iface);
 
-            if (val->report_id < MAX_REPORTS)
+            if (val->report_id < MAX_REPORTS) {
                 iface->report_handler[val->report_id] = hay->receiver;
+                debug_print_extracted_mapping(hay->name, val);
+            }
         }
     }
 }
