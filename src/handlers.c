@@ -310,6 +310,10 @@ void handle_request_byte_msg(uart_packet_t *packet, device_t *state) {
     if (address > STAGING_IMAGE_SIZE)
         return;
 
+    /* If this is the first byte request, peer is pulling from us - reset flash source */
+    if (address == 0 && state->flash_source == FLASH_SOURCE_DIRECT)
+        state->flash_source = FLASH_SOURCE_PEER;
+
     /* Add requested data to bytes 4-7 in the packet and return it with a different type */
     uint32_t data = *(uint32_t *)&ADDR_FW_RUNNING[address];
     packet->data32[1] = data;
@@ -353,11 +357,15 @@ void handle_heartbeat_msg(uart_packet_t *packet, device_t *state) {
     if (state->fw.upgrade_in_progress)
         return;
 
+    /* Don't pull if we were directly flashed - wait until after reboot */
+    if (state->flash_source == FLASH_SOURCE_DIRECT)
+        return;
+
     /* If the other board isn't running a newer version, we are done */
     if (other_running_version <= state->_running_fw.version)
         return;
 
-    /* It is? Ok, kick off the firmware upgrade */
+    /* Ok, kick off the firmware upgrade */
     state->fw = (fw_upgrade_state_t) {
         .upgrade_in_progress = true,
         .byte_done = true,
