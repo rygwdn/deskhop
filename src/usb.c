@@ -129,13 +129,18 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
     hid_interface_t *iface = &global_state.iface[dev_addr-1][instance];
 
     iface->protocol = tuh_hid_get_protocol(dev_addr, instance);
+    iface->dev_addr = dev_addr;
+    iface->instance = instance;
+
+    /* Get device VID/PID for device-specific handling */
+    tuh_vid_pid_get(dev_addr, &iface->vid, &iface->pid);
 
     /* Safeguard against memory corruption in case the number of instances exceeds our maximum */
     if (instance >= MAX_INTERFACES)
         return;
 
     /* Parse the report descriptor into our internal structure. */
-    parse_report_descriptor(iface, desc_report, desc_len);
+    parse_report_descriptor(iface, desc_report, desc_len, BOARD_ROLE, dev_addr, instance);
 
     switch (itf_protocol) {
         case HID_ITF_PROTOCOL_KEYBOARD:

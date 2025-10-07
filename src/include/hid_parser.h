@@ -141,6 +141,10 @@ struct hid_interface_t {
     process_report_f report_handler[MAX_REPORTS];
     uint8_t protocol;
     bool uses_report_id;
+    uint8_t dev_addr;
+    uint8_t instance;
+    uint16_t vid;
+    uint16_t pid;
 };
 
 typedef struct {

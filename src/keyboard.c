@@ -10,6 +10,7 @@
  */
 
 #include "main.h"
+#include "hid_descriptor_dump.h"
 
 /* ==================================================== *
  * Hotkeys to trigger actions via the keyboard.
@@ -297,8 +298,8 @@ void process_keyboard_report(uint8_t *raw_report, int length, uint8_t itf, hid_i
         return;
 
     extract_kbd_data(raw_report, length, itf, iface, &new_report);
+    debug_dump_hid_report(raw_report, length, iface->dev_addr, iface->instance, iface, NULL, &new_report);
 
-    /* Update the keyboard state for this device */
     update_kbd_state(state, &new_report, itf);
 
     /* Check if any hotkey was pressed */

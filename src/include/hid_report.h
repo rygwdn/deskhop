@@ -31,4 +31,13 @@ typedef struct {
     value_handler_f handler;
     process_report_f receiver;
     report_id_getter_f get_id;
+    #ifdef DH_DEBUG
+    const char *name;
+    #endif
 } usage_map_t;
+
+/*==============================================================================
+ *  Functions
+ *==============================================================================*/
+
+int32_t get_report_value(uint8_t *report, int len, report_val_t *val);
