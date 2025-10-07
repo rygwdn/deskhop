@@ -317,6 +317,39 @@ mouse_report_t create_mouse_report(device_t *state, mouse_values_t *values) {
     return mouse_report;
 }
 
+void send_activity_sync(device_t *state) {
+    static uint64_t last_sync_time = 0;
+    static int16_t last_x = 0, last_y = 0;
+
+    uint64_t now = time_us_64();
+
+    /* Throttle: Only send if >100ms elapsed or position changed >5px */
+    if (now - last_sync_time < 100000) {
+        int16_t dx = state->pointer_x - last_x;
+        int16_t dy = state->pointer_y - last_y;
+        if (dx*dx + dy*dy < 25) {  /* sqrt(25) = 5 pixels */
+            return;
+        }
+    }
+
+    /* Pack data: x, y, buttons (6 bytes), timestamp would overflow 8-byte limit */
+    uint8_t sync_data[8];
+    sync_data[0] = state->pointer_x & 0xFF;
+    sync_data[1] = (state->pointer_x >> 8) & 0xFF;
+    sync_data[2] = state->pointer_y & 0xFF;
+    sync_data[3] = (state->pointer_y >> 8) & 0xFF;
+    sync_data[4] = state->mouse_buttons & 0xFF;
+    sync_data[5] = (state->mouse_buttons >> 8) & 0xFF;
+    sync_data[6] = 0;  /* Reserved */
+    sync_data[7] = 0;  /* Reserved */
+
+    queue_packet(sync_data, ACTIVITY_SYNC_MSG, 8);
+
+    last_sync_time = now;
+    last_x = state->pointer_x;
+    last_y = state->pointer_y;
+}
+
 void process_mouse_report(uint8_t *raw_report, int len, uint8_t itf, hid_interface_t *iface) {
     mouse_values_t values = {0};
     device_t *state = &global_state;
@@ -332,6 +365,11 @@ void process_mouse_report(uint8_t *raw_report, int len, uint8_t itf, hid_interfa
 
     /* Move the mouse, depending where the output is supposed to go */
     output_mouse_report(&report, state);
+
+    /* Send activity sync to other board if we're the active output */
+    if (CURRENT_BOARD_IS_ACTIVE_OUTPUT) {
+        send_activity_sync(state);
+    }
 
     /* We use the mouse to switch outputs, if switch_direction is LEFT or RIGHT */
     if (switch_direction != NONE)

@@ -164,6 +164,22 @@ void handle_keyboard_uart_msg(uart_packet_t *packet, device_t *state) {
     state->last_activity[BOARD_ROLE] = time_us_64();
 }
 
+/* Function handles activity sync from the other board */
+void handle_activity_sync_msg(uart_packet_t *packet, device_t *state) {
+    /* Unpack pointer state from packet */
+    int16_t pointer_x = (int16_t)(packet->data[0] | (packet->data[1] << 8));
+    int16_t pointer_y = (int16_t)(packet->data[2] | (packet->data[3] << 8));
+    int16_t mouse_buttons = (int16_t)(packet->data[4] | (packet->data[5] << 8));
+
+    /* Update our local copy of the remote board's pointer state */
+    state->pointer_x = pointer_x;
+    state->pointer_y = pointer_y;
+    state->mouse_buttons = mouse_buttons;
+
+    /* Update remote board activity timestamp */
+    state->last_activity[1 - BOARD_ROLE] = time_us_64();
+}
+
 /* Function handles received mouse moves from the other board */
 void handle_mouse_abs_uart_msg(uart_packet_t *packet, device_t *state) {
     mouse_report_t *mouse_report = (mouse_report_t *)packet->data;

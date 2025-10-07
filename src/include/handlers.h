@@ -37,6 +37,7 @@ void wipe_config_hotkey_handler(device_t *, hid_keyboard_report_t *);
  *  These handlers process incoming messages received over the UART interface.
  *==============================================================================*/
 
+void handle_activity_sync_msg(uart_packet_t *, device_t *);
 void handle_api_msgs(uart_packet_t *, device_t *);
 void handle_api_read_all_msg(uart_packet_t *, device_t *);
 void handle_consumer_control_msg(uart_packet_t *, device_t *);
