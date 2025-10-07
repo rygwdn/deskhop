@@ -95,7 +95,7 @@ float calculate_mouse_acceleration_factor(int32_t offset_x, int32_t offset_y) {
 }
 
 /* Returns LEFT if need to jump left, RIGHT if right, NONE otherwise */
-enum screen_pos_e update_mouse_position(device_t *state, mouse_values_t *values) {
+enum screen_pos_e update_mouse_position(device_t *state, mouse_values_t *values, uint8_t device_idx) {
     output_t *current    = &state->config.output[state->active_output];
     uint8_t reduce_speed = 0;
 
@@ -115,20 +115,18 @@ enum screen_pos_e update_mouse_position(device_t *state, mouse_values_t *values)
     state->pointer_x = move_and_keep_on_screen(state->pointer_x, offset_x);
     state->pointer_y = move_and_keep_on_screen(state->pointer_y, offset_y);
 
-    /* Update buttons state */
-    state->mouse_buttons = values->buttons;
+    update_mouse_button_state(state, values->buttons, device_idx);
 
     return switch_direction;
 }
 
-/* If we are active output, queue packet to mouse queue, else send them through UART */
 void output_mouse_report(mouse_report_t *report, device_t *state) {
     if (CURRENT_BOARD_IS_ACTIVE_OUTPUT) {
         queue_mouse_report(report, state);
         state->last_activity[BOARD_ROLE] = time_us_64();
-    } else {
-        queue_packet((uint8_t *)report, MOUSE_REPORT_MSG, MOUSE_REPORT_LENGTH);
     }
+
+    queue_packet((uint8_t *)report, MOUSE_REPORT_MSG, MOUSE_REPORT_LENGTH);
 }
 
 /* Calculate and return Y coordinate when moving from screen out_from to screen out_to */
@@ -317,23 +315,70 @@ mouse_report_t create_mouse_report(device_t *state, mouse_values_t *values) {
     return mouse_report;
 }
 
+/* ==================================================== *
+ * Mouse Button State Management
+ * ==================================================== */
+
+void update_mouse_button_state(device_t *state, uint8_t buttons, uint8_t device_idx) {
+    if (device_idx >= MAX_DEVICES)
+        return;
+
+    state->local_mouse_buttons[device_idx] = buttons;
+
+    if (state->max_mouse_idx < device_idx)
+        state->max_mouse_idx = device_idx;
+}
+
+void update_remote_mouse_button_state(device_t *state, uint8_t buttons) {
+    state->remote_mouse_state = buttons;
+}
+
+uint8_t combine_mouse_button_states(device_t *state) {
+    /* Validate max_mouse_idx to prevent out of bounds access */
+    if (state->max_mouse_idx >= MAX_DEVICES)
+        state->max_mouse_idx = MAX_DEVICES - 1;
+
+    uint8_t combined_buttons = 0;
+
+    for (uint8_t i = 0; i <= state->max_mouse_idx; i++) {
+        combined_buttons |= state->local_mouse_buttons[i];
+    }
+
+    combined_buttons |= state->remote_mouse_state;
+
+    return combined_buttons;
+}
+
+void release_mouse_buttons(device_t *state) {
+    memset(state->local_mouse_buttons, 0, sizeof(state->local_mouse_buttons));
+    state->remote_mouse_state = 0;
+    state->mouse_buttons = 0;
+
+    mouse_report_t empty_report = {
+        .buttons = 0,
+        .x = 0,
+        .y = 0,
+        .wheel = 0,
+        .pan = 0,
+        .mode = RELATIVE,
+    };
+    queue_mouse_report(&empty_report, state);
+}
+
 void process_mouse_report(uint8_t *raw_report, int len, uint8_t itf, hid_interface_t *iface) {
     mouse_values_t values = {0};
     device_t *state = &global_state;
 
-    /* Interpret the mouse HID report, extract and save values we need. */
     extract_report_values(raw_report, len, state, &values, iface);
 
-    /* Calculate and update mouse pointer movement. */
-    enum screen_pos_e switch_direction = update_mouse_position(state, &values);
+    enum screen_pos_e switch_direction = update_mouse_position(state, &values, itf);
 
-    /* Create the report for the output PC based on the updated values */
+    state->mouse_buttons = combine_mouse_button_states(state);
+
     mouse_report_t report = create_mouse_report(state, &values);
 
-    /* Move the mouse, depending where the output is supposed to go */
     output_mouse_report(&report, state);
 
-    /* We use the mouse to switch outputs, if switch_direction is LEFT or RIGHT */
     if (switch_direction != NONE)
         do_screen_switch(state, switch_direction);
 }

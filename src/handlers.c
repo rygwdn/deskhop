@@ -164,14 +164,19 @@ void handle_keyboard_uart_msg(uart_packet_t *packet, device_t *state) {
     state->last_activity[BOARD_ROLE] = time_us_64();
 }
 
-/* Function handles received mouse moves from the other board */
 void handle_mouse_abs_uart_msg(uart_packet_t *packet, device_t *state) {
     mouse_report_t *mouse_report = (mouse_report_t *)packet->data;
-    queue_mouse_report(mouse_report, state);
 
-    state->pointer_x       = mouse_report->x;
-    state->pointer_y       = mouse_report->y;
-    state->mouse_buttons   = mouse_report->buttons;
+    if (CURRENT_BOARD_IS_ACTIVE_OUTPUT) {
+        queue_mouse_report(mouse_report, state);
+    }
+
+    state->pointer_x = mouse_report->x;
+    state->pointer_y = mouse_report->y;
+
+    update_remote_mouse_button_state(state, mouse_report->buttons);
+
+    state->mouse_buttons = combine_mouse_button_states(state);
 
     state->last_activity[BOARD_ROLE] = time_us_64();
 }

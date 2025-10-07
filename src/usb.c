@@ -97,6 +97,16 @@ void tud_umount_cb(void) {
  * ===============  USB HOST Section  =============== *
  * ================================================== */
 
+static int8_t find_mouse_slot(uint8_t dev_addr, uint8_t instance) {
+    for (int i = 1; i < MAX_DEVICES - 1; i++) {
+        if (global_state.mouse_dev_addr[i] == dev_addr &&
+            global_state.mouse_instance[i] == instance) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance) {
     uint8_t itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 
@@ -111,6 +121,13 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance) {
             break;
 
         case HID_ITF_PROTOCOL_MOUSE:
+            int8_t slot = find_mouse_slot(dev_addr, instance);
+            if (slot >= 0) {
+                global_state.local_mouse_buttons[slot] = 0;
+                global_state.mouse_dev_addr[slot] = 0;
+                global_state.mouse_instance[slot] = 0;
+                global_state.mouse_buttons = combine_mouse_button_states(&global_state);
+            }
             break;
     }
 
@@ -155,10 +172,14 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
             if (global_state.config.enforce_ports && BOARD_ROLE == OUTPUT_A)
                 return;
 
-            /* Switch to using report protocol instead of boot, it's more complicated but
-               at least we get all the information we need (looking at you, mouse wheel) */
             if (tuh_hid_get_protocol(dev_addr, instance) == HID_PROTOCOL_BOOT) {
                 tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_REPORT);
+            }
+
+            int8_t slot = find_mouse_slot(0, 0);
+            if (slot >= 0) {
+                global_state.mouse_dev_addr[slot] = dev_addr;
+                global_state.mouse_instance[slot] = instance;
             }
             break;
 
@@ -209,8 +230,8 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
             device_idx = (MAX_DEVICES - 2);
         }
     } else if (itf_protocol == HID_ITF_PROTOCOL_MOUSE) {
-        /* Mouse devices */
-        device_idx = 1;
+        int8_t slot = find_mouse_slot(dev_addr, instance);
+        device_idx = (slot >= 0) ? slot : 1;
     } else {
         /* Other devices */
         device_idx = (dev_addr - 1) % (MAX_DEVICES - 1);

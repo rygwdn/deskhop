@@ -94,6 +94,9 @@ typedef struct {
     uint8_t kbd_dev_addr; // Address of the Keyboard device
     uint8_t kbd_instance; // Keyboard instance (d'uh - isn't this a useless comment)
 
+    uint8_t mouse_dev_addr[MAX_DEVICES];
+    uint8_t mouse_instance[MAX_DEVICES];
+
     uint8_t keyboard_leds[NUM_SCREENS];  // State of keyboard LEDs (index 0 = A, index 1 = B)
     uint64_t last_activity[NUM_SCREENS]; // Timestamp of the last input activity (-||-)
     uint64_t core1_last_loop_pass;       // Timestamp of last core1 loop execution
@@ -106,7 +109,11 @@ typedef struct {
 
     int16_t pointer_x; // Store and update the location of our mouse pointer
     int16_t pointer_y;
-    int16_t mouse_buttons; // Store and update the state of mouse buttons
+    uint8_t mouse_buttons; // Store and update the state of mouse buttons (merged from all sources)
+
+    uint8_t local_mouse_buttons[MAX_DEVICES]; // Store button states for each local mouse
+    uint8_t remote_mouse_state;               // Store combined remote mouse button state
+    uint8_t max_mouse_idx;                    // Store largest mouse_idx seen
 
     config_t config;       // Device configuration, loaded from flash or defaults used
     queue_t hid_queue_out; // Queue that stores outgoing hid messages
