@@ -24,6 +24,7 @@ typedef uint8_t *(*report_id_getter_f)(hid_interface_t *iface);
  *==============================================================================*/
 
 typedef struct {
+    const char *name;
     int global_usage;
     int usage_page;
     int usage;
@@ -32,3 +33,9 @@ typedef struct {
     process_report_f receiver;
     report_id_getter_f get_id;
 } usage_map_t;
+
+/*==============================================================================
+ *  Functions
+ *==============================================================================*/
+
+int32_t get_report_value(uint8_t *report, int len, report_val_t *val);

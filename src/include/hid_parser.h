@@ -141,6 +141,8 @@ struct hid_interface_t {
     process_report_f report_handler[MAX_REPORTS];
     uint8_t protocol;
     bool uses_report_id;
+    uint16_t vid;
+    uint16_t pid;
 };
 
 typedef struct {
@@ -164,3 +166,9 @@ typedef struct {
 } parser_state_t;
 
 ///////////////
+
+/*==============================================================================
+ *  Functions
+ *==============================================================================*/
+
+void parse_report_descriptor(hid_interface_t *, uint8_t const *, int);

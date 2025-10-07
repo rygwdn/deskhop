@@ -10,6 +10,7 @@
  */
 
 #include "main.h"
+#include "hid_descriptor_dump.h"
 #include <math.h>
 
 #define MACOS_SWITCH_MOVE_X 10
@@ -323,6 +324,8 @@ void process_mouse_report(uint8_t *raw_report, int len, uint8_t itf, hid_interfa
 
     /* Interpret the mouse HID report, extract and save values we need. */
     extract_report_values(raw_report, len, state, &values, iface);
+
+    debug_dump_hid_report(raw_report, len, iface, &values, NULL);
 
     /* Calculate and update mouse pointer movement. */
     enum screen_pos_e switch_direction = update_mouse_position(state, &values);

@@ -18,7 +18,6 @@
  *==============================================================================*/
 void      extract_data(hid_interface_t *, report_val_t *);
 int32_t   get_report_value(uint8_t *, int, report_val_t *);
-void      parse_report_descriptor(hid_interface_t *, uint8_t const *, int);
 
 /*==============================================================================
  *  Mouse Report Handling

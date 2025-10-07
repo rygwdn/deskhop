@@ -12,6 +12,7 @@
  * See the file LICENSE for the full license text.
  */
 #include "main.h"
+#include "hid_descriptor_dump.h"
 
 #define IS_BLOCK_END (parser->collection.start == parser->collection.end)
 
@@ -149,13 +150,14 @@ parser_state_t parser_state = {0};  // Avoid placing it on the stack, it's large
 
 void parse_report_descriptor(hid_interface_t *iface,
                             uint8_t const *report,
-                            int desc_len
-                            ) {
+                            int desc_len) {
     item_t item = {0};
 
     /* Wipe parser_state clean */
     memset(&parser_state, 0, sizeof(parser_state_t));
     parser_state.p_usage = parser_state.usages;
+
+    debug_print_descriptor_raw(report, desc_len, iface);
 
     while (desc_len > 0) {
         item.hdr = *(header_t *)report++;

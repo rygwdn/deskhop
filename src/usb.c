@@ -130,6 +130,8 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 
     iface->protocol = tuh_hid_get_protocol(dev_addr, instance);
 
+    tuh_vid_pid_get(dev_addr, &iface->vid, &iface->pid);
+
     /* Safeguard against memory corruption in case the number of instances exceeds our maximum */
     if (instance >= MAX_INTERFACES)
         return;

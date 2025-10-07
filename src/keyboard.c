@@ -10,6 +10,7 @@
  */
 
 #include "main.h"
+#include "hid_descriptor_dump.h"
 
 /* ==================================================== *
  * Hotkeys to trigger actions via the keyboard.
@@ -170,10 +171,10 @@ void update_remote_kbd_state(device_t *state, hid_keyboard_report_t *report) {
 static void add_keys(hid_keyboard_report_t *dest, const hid_keyboard_report_t *src) {
     for (uint8_t i = 0; i < KEYS_IN_USB_REPORT; i++) {
         uint8_t key = src->keycode[i];
-        
+
         if (key == 0 || key_in_report(key, dest))
             continue;
-            
+
         uint8_t *empty_slot = memchr(dest->keycode, 0, KEYS_IN_USB_REPORT);
         if (empty_slot)
             *empty_slot = key;
@@ -184,7 +185,7 @@ static void add_keys(hid_keyboard_report_t *dest, const hid_keyboard_report_t *s
 void release_all_keys(device_t *state) {
     memset(state->local_kbd_states, 0, sizeof(state->local_kbd_states));
     memset(&state->remote_kbd_state, 0, sizeof(hid_keyboard_report_t));
-    
+
     static hid_keyboard_report_t empty_report = {0};
     queue_kbd_report(&empty_report, state);
 }
@@ -199,7 +200,7 @@ void combine_kbd_states(device_t *state, hid_keyboard_report_t *combined_report)
         combined_report->modifier |= state->local_kbd_states[i].modifier;
         add_keys(combined_report, &state->local_kbd_states[i]);
     }
-    
+
     /* Add remote keyboard */
     combined_report->modifier |= state->remote_kbd_state.modifier;
     add_keys(combined_report, &state->remote_kbd_state);
@@ -297,6 +298,7 @@ void process_keyboard_report(uint8_t *raw_report, int length, uint8_t itf, hid_i
         return;
 
     extract_kbd_data(raw_report, length, itf, iface, &new_report);
+    debug_dump_hid_report(raw_report, length, iface, NULL, &new_report);
 
     /* Update the keyboard state for this device */
     update_kbd_state(state, &new_report, itf);
