@@ -346,18 +346,35 @@ void handle_response_byte_msg(uart_packet_t *packet, device_t *state) {
     state->fw.byte_done = true;
 }
 
+static inline bool should_upgrade_firmware(device_t *state, uint16_t peer_version, uint32_t peer_checksum) {
+    if (state->fw.upgrade_in_progress)
+        return false;
+
+    if (peer_version > state->_running_fw.version)
+        return true;
+
+    if (peer_version == state->_running_fw.version &&
+        peer_checksum != 0 &&
+        state->peer_last_checksum == state->_running_fw.checksum &&
+        peer_checksum != state->peer_last_checksum)
+        return true;
+
+    return false;
+}
+
 /* Process a request to read a firmware package from flash */
 void handle_heartbeat_msg(uart_packet_t *packet, device_t *state) {
-    uint16_t other_running_version = packet->data16[0];
+    uint16_t peer_version = packet->data16[0];
+    uint32_t peer_checksum = packet->data32[1];
 
-    if (state->fw.upgrade_in_progress)
+    bool should_pull = should_upgrade_firmware(state, peer_version, peer_checksum);
+
+    state->peer_last_version = peer_version;
+    state->peer_last_checksum = peer_checksum;
+
+    if (!should_pull)
         return;
 
-    /* If the other board isn't running a newer version, we are done */
-    if (other_running_version <= state->_running_fw.version)
-        return;
-
-    /* It is? Ok, kick off the firmware upgrade */
     state->fw = (fw_upgrade_state_t) {
         .upgrade_in_progress = true,
         .byte_done = true,

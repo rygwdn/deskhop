@@ -165,6 +165,9 @@ void heartbeat_output_task(device_t *state) {
             [0] = state->_running_fw.version,
             [2] = state->active_output,
         },
+        .data32 = {
+            [1] = state->_running_fw.checksum,
+        },
     };
 
     queue_try_add(&global_state.uart_tx_queue, &packet);
