@@ -93,6 +93,27 @@ void tud_umount_cb(void) {
     global_state.tud_connected = false;
 }
 
+#ifdef DH_DEBUG
+void tud_cdc_rx_cb(uint8_t itf) {
+    char buf[64];
+    uint32_t count = tud_cdc_n_available(itf);
+
+    if (count == 0)
+        return;
+
+    if (count > sizeof(buf))
+        count = sizeof(buf);
+
+    uint32_t read = tud_cdc_n_read(itf, buf, count);
+
+#ifdef DH_DEBUG_CDC_FLASH
+    if (read >= 5 && memcmp(buf, "flash", 5) == 0) {
+        reset_usb_boot(0, 0);
+    }
+#endif
+}
+#endif
+
 /* ================================================== *
  * ===============  USB HOST Section  =============== *
  * ================================================== */
