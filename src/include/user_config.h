@@ -123,6 +123,12 @@
  * SCREENSAVER_{A|B}_MODE: DISABLED
  *                         PONG
  *                         JITTER
+ *                         MIRROR
+ *
+ * MIRROR mode keeps the inactive PC awake by generating mouse jitter
+ * whenever the OTHER board has activity. When you work on output A,
+ * output B stays awake. When you switch to B, A stays awake. This mode
+ * ignores idle_time_us and should be used with only_if_inactive=1.
  *
  * */
 

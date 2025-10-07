@@ -124,6 +124,11 @@ If you're gaming, there is a chance your game might not work properly with absol
 
 Supposedly built in to prevent computer from entering standby, but truth be told - it is just fun to watch. **Off by default**, will make your mouse pointer bounce around the screen like a Pong ball. When enabled, it activates after a period of inactivity defined in user config header and automatically switches off as soon as you send any output towards that screen.
 
+**Three modes available:**
+- **PONG**: Bouncing ball animation
+- **JITTER**: Small periodic mouse movements
+- **MIRROR**: Keeps the inactive PC awake by mirroring activity from the active board. When you work on output A, output B stays awake and vice versa. Useful when you want both machines to remain active regardless of which one you're using.
+
 Potential usage example - I have a buggy USB dock that won't resume video from standby, so not allowing it to sleep can be a handy workaround.
 
 ## Hardware
@@ -238,7 +243,8 @@ _Usage_:
 - ```Right CTRL + K``` - Lock/Unlock mouse desktop switching
 - ```Right CTRL + L``` - Lock both outputs at once (set output OS before, see shortcuts below)
 - ~~```Left Shift```~~ ```Left CTRL + Right Shift + G``` - Toggle gaming mode (lock to screen, act as standard mouse)
-- ```Left CTRL + Right Shift + S``` - Enable screensaver
+- ```Left CTRL + Right Shift + S``` - Cycle screensaver mode (DISABLED → PONG → JITTER → MIRROR → DISABLED). Both boards flash LEDs to indicate mode: 1 flash = disabled, 3 flashes = PONG, 5 flashes = JITTER, 7 flashes = MIRROR
+- ```Left CTRL + Right Shift + E``` - Enable screensaver (uses last configured mode, or PONG if disabled)
 - ```Left CTRL + Right Shift + X``` - Disable screensaver
 - ```Left CTRL + Caps Lock``` - Switch between outputs
 

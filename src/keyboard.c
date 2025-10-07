@@ -59,6 +59,13 @@ hotkey_combo_t hotkeys[] = {
      .acknowledge    = true,
      .action_handler = &enable_screensaver_hotkey_handler},
 
+    /* Cycle through screensaver modes for active output */
+    {.modifier       = KEYBOARD_MODIFIER_LEFTCTRL | KEYBOARD_MODIFIER_RIGHTSHIFT,
+     .keys           = {HID_KEY_N},
+     .key_count      = 1,
+     .acknowledge    = true,
+     .action_handler = &cycle_screensaver_hotkey_handler},
+
     /* Disable screensaver for active output */
     {.modifier       = KEYBOARD_MODIFIER_LEFTCTRL | KEYBOARD_MODIFIER_RIGHTSHIFT,
      .keys           = {HID_KEY_X},

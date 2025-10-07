@@ -34,10 +34,24 @@ void _get_border_position(device_t *state, border_size_t *border) {
 }
 
 void _screensaver_set(device_t *state, uint8_t value) {
-    if (CURRENT_BOARD_IS_ACTIVE_OUTPUT)
+    if (CURRENT_BOARD_IS_ACTIVE_OUTPUT) {
         state->config.output[BOARD_ROLE].screensaver.mode = value;
-    else
+
+        /* Flash LED to indicate mode: 1=PONG, 2=JITTER, 3=MIRROR, 0=DISABLED */
+        if (value == DISABLED) {
+            /* Single long flash for disabled */
+            state->blinks_left = 1;
+        } else {
+            /* Multiple short flashes: count = mode number */
+            state->blinks_left = value * 2 + 1; /* 3 for PONG, 5 for JITTER, 7 for MIRROR */
+        }
+        state->last_led_change = time_us_32();
+
+        /* Also flash on the other board */
+        send_value(ENABLE, FLASH_LED_MSG);
+    } else {
         send_value(value, SCREENSAVER_MSG);
+    }
 };
 
 /* This key combo records switch y top coordinate for different-size monitors  */
@@ -114,6 +128,21 @@ void mouse_zoom_hotkey_handler(device_t *state, hid_keyboard_report_t *report) {
     state->mouse_zoom ^= 1;
     send_value(state->mouse_zoom, MOUSE_ZOOM_MSG);
 };
+
+/* When pressed, cycles through screensaver modes on active output */
+void cycle_screensaver_hotkey_handler(device_t *state, hid_keyboard_report_t *report) {
+    uint8_t current_mode = state->config.output[BOARD_ROLE].screensaver.mode;
+    uint8_t next_mode;
+
+    /* Cycle: DISABLED -> PONG -> JITTER -> MIRROR -> DISABLED */
+    if (current_mode >= MAX_SS_VAL) {
+        next_mode = DISABLED;
+    } else {
+        next_mode = current_mode + 1;
+    }
+
+    _screensaver_set(state, next_mode);
+}
 
 /* When pressed, enables the screensaver on active output */
 void enable_screensaver_hotkey_handler(device_t *state, hid_keyboard_report_t *report) {
