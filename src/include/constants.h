@@ -19,6 +19,18 @@
 #define OUTPUT_B 1
 
 /*==============================================================================
+ *  Firmware Flash Source and Magic Version
+ *==============================================================================*/
+
+#define FLASH_SOURCE_UNKNOWN 0
+#define FLASH_SOURCE_DIRECT  1
+#define FLASH_SOURCE_PEER    2
+
+/* Magic version advertised by directly-flashed devices to force peer pull.
+   Close to uint16_t max (0xFFFF) but not at it. */
+#define FIRMWARE_MAGIC_VERSION 0xFFFE
+
+/*==============================================================================
  *  HID Interface Numbers
  *==============================================================================*/
 
