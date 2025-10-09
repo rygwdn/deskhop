@@ -38,6 +38,12 @@ typedef struct {
     uint8_t end;
 } collection_t;
 
+/* Maps a report ID to its current bit offset */
+typedef struct {
+    uint8_t report_id;
+    uint32_t offset_in_bits;
+} report_offset_map_t;
+
 /* Header byte is unpacked to size/type/tag using this struct */
 typedef struct TU_ATTR_PACKED {
     uint8_t size : 2;
@@ -141,6 +147,10 @@ struct hid_interface_t {
     process_report_f report_handler[MAX_REPORTS];
     uint8_t protocol;
     bool uses_report_id;
+    uint8_t dev_addr;
+    uint8_t instance;
+    uint16_t vid;
+    uint16_t pid;
 };
 
 typedef struct {
@@ -149,12 +159,15 @@ typedef struct {
     int report_id; /* Report ID of the current section we're parsing */
 
     uint32_t usage_count;
-    uint32_t offset_in_bits;
     uint16_t usages[HID_MAX_USAGES];
     uint16_t *p_usage;
     uint16_t global_usage;
 
     collection_t collection;
+
+    /* Track offset separately for each report ID */
+    report_offset_map_t report_offsets[MAX_REPORTS];
+    uint8_t num_report_offsets;
 
     /* as tag is 4 bits, there can be 16 different tags in global header type */
     item_t globals[16];

@@ -108,6 +108,9 @@ extern int dh_debug_printf(const char *__restrict __format, ...);
 #else
 // Disable CDC class when not debugging.
 #define CFG_TUD_CDC 0
+
+// External declaration for libraries that expect it
+extern int dh_debug_printf(const char *format, ...);
 #endif
 
 /*==============================================================================

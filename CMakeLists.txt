@@ -8,6 +8,7 @@ set(VERSION_MINOR 73)
 ## Release Type Selection
 option(DH_DEBUG "Build a debug version" OFF)
 option(DH_DEBUG_CDC_FLASH "Enable CDC command to trigger bootloader mode" OFF)
+option(DH_DEBUG_HID_DUMP "Enable HID report dumping to CDC serial" OFF)
 
 ## Hardware Configuration
 set(DP_PIN_DEFAULT 14 CACHE STRING "Default USB D+ Pin Number")
@@ -58,6 +59,7 @@ set(COMMON_SOURCES
   ${SRC_DIR}/constants.c
   ${SRC_DIR}/protocol.c
   ${SRC_DIR}/hid_parser.c
+  ${SRC_DIR}/hid_descriptor_dump.c
   ${SRC_DIR}/hid_report.c
   ${SRC_DIR}/utils.c
   ${SRC_DIR}/handlers.c
@@ -124,6 +126,10 @@ endif()
 
 if (DH_DEBUG_CDC_FLASH)
   add_definitions(-DDH_DEBUG_CDC_FLASH)
+endif()
+
+if (DH_DEBUG_HID_DUMP)
+  add_definitions(-DDH_DEBUG_HID_DUMP)
 endif()
   
 target_include_directories(${binary} PUBLIC ${COMMON_INCLUDES})
