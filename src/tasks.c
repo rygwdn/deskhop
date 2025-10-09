@@ -201,10 +201,15 @@ void heartbeat_output_task(device_t *state) {
         reset_usb_boot(1 << PICO_DEFAULT_LED_PIN, 0);
 #endif
 
+    /* If directly flashed, advertise magic version to force peer to pull */
+    uint16_t advertised_version = (state->flash_source == FLASH_SOURCE_DIRECT)
+                                   ? FIRMWARE_MAGIC_VERSION
+                                   : state->_running_fw.version;
+
     uart_packet_t packet = {
         .type = HEARTBEAT_MSG,
         .data16 = {
-            [0] = state->_running_fw.version,
+            [0] = advertised_version,
             [2] = state->active_output,
         },
     };
@@ -252,6 +257,7 @@ void firmware_upgrade_task(device_t *state) {
 
         else {
             state->_running_fw = _firmware_metadata;
+            state->flash_source = FLASH_SOURCE_PEER;
             global_state.reboot_requested = true;
         }
     }

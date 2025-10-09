@@ -93,6 +93,7 @@ int32_t tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t *
             reset_usb_boot(1 << PICO_DEFAULT_LED_PIN, 0);
         }
         else {
+            global_state.flash_source = FLASH_SOURCE_DIRECT;
             global_state.reboot_requested = true;
         }
     }
