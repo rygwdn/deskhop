@@ -215,6 +215,35 @@ bool validate_packet(uart_packet_t *packet) {
  * ================================================== */
 #ifdef DH_DEBUG
 
+static void cdc_write_str(const char *str) {
+    int length = strlen(str);
+
+    if (tud_cdc_connected()) {
+        uint64_t last_avail_time = time_us_64();
+        for (int i = 0; i < length;) {
+            int n = length - i;
+            int avail = (int) tud_cdc_write_available();
+            if (n > avail) n = avail;
+            if (n) {
+                // int n2 = (int)n; // tud_cdc_write(str + i, (uint32_t)n);
+                int n2 = (int) tud_cdc_write(str + i, (uint32_t)n);
+                tud_task();
+                tud_cdc_write_flush();
+                i += n2;
+                last_avail_time = time_us_64();
+            } else {
+                tud_task();
+                tud_cdc_write_flush();
+                if (!tud_cdc_connected() ||
+                    (!tud_cdc_write_available() && time_us_64() > last_avail_time + 1000)) {
+                    break;
+                }
+            }
+        }
+    }
+}
+
+
 int dh_debug_printf(const char *format, ...) {
     va_list args;
     va_start(args, format);
@@ -222,16 +251,16 @@ int dh_debug_printf(const char *format, ...) {
 
     int string_len = vsnprintf(buffer, 512, format, args);
 
-    tud_cdc_n_write(0, buffer, string_len);
+    cdc_write_str(buffer);
     tud_cdc_write_flush();
 
     va_end(args);
     return string_len;
 }
 #else
-
+// Dummy implementation for release builds
 int dh_debug_printf(const char *format, ...) {
+    (void)format;
     return 0;
 }
-
 #endif
