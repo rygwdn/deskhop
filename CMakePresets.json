@@ -1,0 +1,38 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 19,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "release",
+      "description": "Release build",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": {
+        "DH_DEBUG_CDC_FLASH": "OFF",
+        "DH_DEBUG": "OFF"
+      }
+    },
+    {
+      "name": "debug",
+      "description": "Debug build",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": {
+        "DH_DEBUG_CDC_FLASH": "ON",
+        "DH_DEBUG": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "debug",
+      "configurePreset": "debug"
+    }
+  ]
+}

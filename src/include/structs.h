@@ -65,8 +65,25 @@ typedef struct {
     bool upgrade_in_progress; // True if firmware transfer from the other box is in progress
 } fw_upgrade_state_t;
 
+#define ACCEL_CURVE_POINTS  8
+#define MAX_BUTTONS         8
+#define MAX_DEVICE_CONFIGS  4
+
 typedef struct {
-    uint32_t magic_header;
+    uint16_t speed;    // movement magnitude threshold
+    uint16_t factor;   // acceleration × 100 (e.g. 150 = 1.50×)
+} accel_point_t;
+
+typedef struct {
+    uint16_t vid;
+    uint16_t pid;
+    uint8_t  invert_scroll;
+    uint8_t  use_accel_curve;
+    uint8_t  button_map[MAX_BUTTONS];  // button_map[i] = output button index for input button i (0xFF = passthrough)
+    accel_point_t accel_curve[ACCEL_CURVE_POINTS];
+} device_config_t;
+
+typedef struct {
     uint32_t version;
 
     uint8_t force_mouse_boot_mode;
@@ -80,10 +97,9 @@ typedef struct {
     uint16_t jump_threshold;
 
     output_t output[NUM_SCREENS];
-    uint32_t _reserved;
 
-    // Keep checksum at the end of the struct
-    uint32_t checksum;
+    accel_point_t   accel_curve[ACCEL_CURVE_POINTS];
+    device_config_t devices[MAX_DEVICE_CONFIGS];
 } config_t;
 
 
@@ -127,6 +143,9 @@ typedef struct {
     /* Firmware */
     fw_upgrade_state_t fw;           // State of the firmware upgrader
     firmware_metadata_t _running_fw; // RAM copy of running fw metadata
+    uint16_t _peer_fw_version;       // Last seen peer firmware version (from heartbeat)
+    bool hid_dump_enabled;           // When true, stream HID reports to CDC serial
+    bool hid_dump_all;               // When true, disable throttling and dump every report
     uint8_t flash_source;            // Track if firmware was directly flashed (0=unknown, 1=direct, 2=peer)
     bool reboot_requested;           // If set, stop updating watchdog
     uint64_t config_mode_timer;      // Counts how long are we to remain in config mode
@@ -144,7 +163,8 @@ typedef struct {
     bool onboard_led_state;  // True when LED is ON
     bool relative_mouse;     // True when relative mouse mode is used
     bool gaming_mode;        // True when gaming mode is on (relative passthru + lock)
-    bool config_mode_active; // True when config mode is active
+    bool config_mode_active;  // True when config mode is active
+    bool config_sync_in_progress; // True when we are receiving a config sync from peer (suppress re-sync)
     bool digitizer_active;   // True when digitizer Win/Mac workaround is active
 
     /* Onboard LED blinky (provide feedback when e.g. mouse connected) */

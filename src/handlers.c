@@ -255,9 +255,11 @@ void handle_consumer_control_msg(uart_packet_t *packet, device_t *state) {
     queue_cc_packet(packet->data, state);
 }
 
-/* Process request to store config to flash */
+/* Process request to store config to flash (sent by peer after streaming SET_VAL_MSGs) */
 void handle_save_config_msg(uart_packet_t *packet, device_t *state) {
+    state->config_sync_in_progress = true;
     save_config(state);
+    state->config_sync_in_progress = false;
 }
 
 /* Process request to reboot the board */
@@ -322,8 +324,10 @@ void handle_request_byte_msg(uart_packet_t *packet, device_t *state) {
         return;
 
     /* If this is the first byte request, peer is pulling from us - reset flash source */
-    if (address == 0 && state->flash_source == FLASH_SOURCE_DIRECT)
+    if (address == 0 && state->flash_source == FLASH_SOURCE_DIRECT) {
         state->flash_source = FLASH_SOURCE_PEER;
+        dh_debug_printf("Peer is pulling firmware from us\n");
+    }
 
     /* Add requested data to bytes 4-7 in the packet and return it with a different type */
     uint32_t data = *(uint32_t *)&ADDR_FW_RUNNING[address];
@@ -365,6 +369,15 @@ void handle_response_byte_msg(uart_packet_t *packet, device_t *state) {
 void handle_heartbeat_msg(uart_packet_t *packet, device_t *state) {
     uint16_t other_running_version = packet->data16[0];
 
+    if (other_running_version != state->_peer_fw_version) {
+        uint16_t prev = state->_peer_fw_version;
+        state->_peer_fw_version = other_running_version;
+        if (prev != 0)
+            dh_debug_printf("Peer firmware version changed: %u -> %u\n", prev, other_running_version);
+        else
+            dh_debug_printf("Peer firmware version: %u\n", other_running_version);
+    }
+
     if (state->fw.upgrade_in_progress)
         return;
 
@@ -377,6 +390,8 @@ void handle_heartbeat_msg(uart_packet_t *packet, device_t *state) {
         return;
 
     /* Ok, kick off the firmware upgrade */
+    dh_debug_printf("Pulling firmware from peer (peer=%u, ours=%u)\n",
+        other_running_version, state->_running_fw.version);
     state->fw = (fw_upgrade_state_t) {
         .upgrade_in_progress = true,
         .byte_done = true,

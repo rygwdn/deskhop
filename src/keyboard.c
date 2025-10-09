@@ -17,6 +17,7 @@
  * ==================================================== */
 
 hotkey_combo_t hotkeys[] = {
+#if false
     /* Main keyboard switching hotkey */
     {.modifier       = HOTKEY_MODIFIER,
      .keys           = {HOTKEY_TOGGLE},
@@ -107,7 +108,9 @@ hotkey_combo_t hotkeys[] = {
      .keys           = {HID_KEY_B},
      .key_count      = 1,
      .acknowledge    = true,
-     .action_handler = &fw_upgrade_hotkey_handler_B}};
+     .action_handler = &fw_upgrade_hotkey_handler_B}
+#endif
+};
 
 /* ============================================================ *
  * Detect if any hotkeys were pressed

@@ -30,6 +30,11 @@
    Close to uint16_t max (0xFFFF) but not at it. */
 #define FIRMWARE_MAGIC_VERSION 0xFFFE
 
+/* Magic marker written to last page of FLASH_CONFIG sector before a BOOTSEL
+   reboot, so the next boot knows it was directly flashed and should sync peer. */
+#define DIRECT_FLASH_MARKER_MAGIC 0xD1F1A5ED
+#define DIRECT_FLASH_MARKER_OFFSET (FLASH_SECTOR_SIZE - FLASH_PAGE_SIZE)
+
 /*==============================================================================
  *  HID Interface Numbers
  *==============================================================================*/

@@ -147,7 +147,7 @@ void tud_umount_cb(void) {
     global_state.tud_connected = false;
 }
 
-#ifdef DH_DEBUG_CDC_FLASH
+#ifdef DH_DEBUG
 void tud_cdc_rx_cb(uint8_t itf) {
     char buf[64];
     uint32_t count = tud_cdc_n_available(itf);
@@ -160,8 +160,47 @@ void tud_cdc_rx_cb(uint8_t itf) {
 
     tud_cdc_n_read(itf, buf, count);
 
+#ifdef DH_DEBUG_CDC_FLASH
     if (count >= 5 && memcmp(buf, "flash", 5) == 0) {
+        write_direct_flash_marker();
         reset_usb_boot(0, 0);
+    }
+#endif
+
+    if (count >= 7 && memcmp(buf, "version", 7) == 0) {
+        dh_debug_printf("firmware version: %u, peer version: %u\n",
+            global_state._running_fw.version,
+            global_state._peer_fw_version);
+    }
+
+    if (count >= 3 && memcmp(buf, "hid", 3) == 0) {
+        dump_hid_tree(&global_state);
+    }
+
+
+    if (count >= 7 && memcmp(buf, "dump on", 7) == 0) {
+        global_state.hid_dump_enabled = true;
+        dh_debug_printf("HID dump enabled\n");
+    }
+
+    if (count >= 8 && memcmp(buf, "dump off", 8) == 0) {
+        global_state.hid_dump_enabled = false;
+        global_state.hid_dump_all = false;
+        dh_debug_printf("HID dump disabled\n");
+    }
+
+    if (count >= 8 && memcmp(buf, "dump all", 8) == 0) {
+        global_state.hid_dump_enabled = true;
+        global_state.hid_dump_all = true;
+        dh_debug_printf("HID dump all enabled (no throttling)\n");
+    }
+}
+
+void tud_cdc_line_state_cb(uint8_t itf, bool dtr, bool rts) {
+    (void)itf; (void)rts;
+    if (!dtr) {
+        global_state.hid_dump_enabled = false;
+        global_state.hid_dump_all = false;
     }
 }
 #endif

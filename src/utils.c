@@ -71,43 +71,153 @@ void write_flash_page(uint32_t target_addr, uint8_t *buffer) {
     restore_interrupts(ints);
 }
 
+/*
+ * Flash config format (fits in one 4KB sector):
+ *   [4] magic = 0xB00B1E5
+ *   [4] format_version = CURRENT_CONFIG_VERSION
+ *   repeated: [2] field_idx  [1] len  [len] value
+ *   [2] sentinel 0x0000
+ *   [4] CRC32 of all bytes above
+ */
+#define CONFIG_MAGIC        0xB00B1E5
+#define CONFIG_HDR_SIZE     8   /* magic(4) + version(4) */
+#define CONFIG_TLV_HDR_SIZE 3   /* idx(2) + len(1) */
+#define CONFIG_FOOTER_SIZE  6   /* sentinel(2) + crc32(4) */
+
 void load_config(device_t *state) {
-    const config_t *config   = ADDR_CONFIG;
-    config_t *running_config = &state->config;
+    const uint8_t *flash = (const uint8_t *)ADDR_CONFIG;
 
-    /* Load the flash config first, including the checksum */
-    memcpy(running_config, config, sizeof(config_t));
+    /* Start from defaults */
+    memcpy(&state->config, &default_config, sizeof(config_t));
 
-    /* Calculate and update checksum, size without checksum */
-    uint8_t checksum = calc_crc32((uint8_t *)running_config, sizeof(config_t) - sizeof(uint32_t));
+    /* Verify magic */
+    uint32_t magic;
+    memcpy(&magic, flash, 4);
+    if (magic != CONFIG_MAGIC)
+        return;
 
-    /* We expect a certain byte to start the config header */
-    bool magic_header_fail = (running_config->magic_header != 0xB00B1E5);
+    /* Find sentinel to determine payload length, then verify CRC32 */
+    const uint8_t *p = flash + CONFIG_HDR_SIZE;
+    const uint8_t *flash_end = flash + FLASH_SECTOR_SIZE - CONFIG_FOOTER_SIZE;
+    while (p < flash_end) {
+        uint16_t idx;
+        memcpy(&idx, p, 2);
+        if (idx == 0)
+            break;
+        if (p + CONFIG_TLV_HDR_SIZE > flash_end)
+            break;
+        p += CONFIG_TLV_HDR_SIZE + p[2];
+    }
+    /* p now points at sentinel; payload = everything up to and including sentinel */
+    size_t payload_len = (size_t)(p - flash) + 2; /* +2 for sentinel */
+    uint32_t stored_crc;
+    memcpy(&stored_crc, flash + payload_len, 4);
+    if (calc_crc32(flash, payload_len) != stored_crc)
+        return;
 
-    /* We expect the checksum to match */
-    bool checksum_fail = (running_config->checksum != checksum);
-
-    /* We expect the config version to match exactly, to avoid erroneous values */
-    bool version_fail = (running_config->version != CURRENT_CONFIG_VERSION);
-
-    /* On any condition failing, we fall back to default config */
-    if (magic_header_fail || checksum_fail || version_fail)
-        memcpy(running_config, &default_config, sizeof(config_t));
+    /* Apply TLV fields */
+    p = flash + CONFIG_HDR_SIZE;
+    while (p < flash_end) {
+        uint16_t idx;
+        memcpy(&idx, p, 2);
+        if (idx == 0)
+            break;
+        uint8_t len = p[2];
+        const field_map_t *f = get_field_map_entry(idx);
+        if (f && !f->readonly && len == f->len) {
+            uint64_t val = 0;
+            memcpy(&val, p + CONFIG_TLV_HDR_SIZE, len);
+            field_write(state, f, val);
+        }
+        p += CONFIG_TLV_HDR_SIZE + len;
+    }
 }
 
+/* Static 4KB buffer for full-sector config writes */
+static uint8_t config_sector_buffer[FLASH_SECTOR_SIZE];
+
 void save_config(device_t *state) {
-    uint8_t *raw_config = (uint8_t *)&state->config;
+    memset(config_sector_buffer, 0, sizeof(config_sector_buffer));
+    uint8_t *buf = config_sector_buffer;
+    size_t pos = 0;
 
-    /* Calculate and update checksum, size without checksum */
-    uint8_t checksum       = calc_crc32(raw_config, sizeof(config_t) - sizeof(uint32_t));
-    state->config.checksum = checksum;
+    /* Header: magic + version */
+    uint32_t magic = CONFIG_MAGIC;
+    uint32_t version = CURRENT_CONFIG_VERSION;
+    memcpy(buf + pos, &magic, 4);   pos += 4;
+    memcpy(buf + pos, &version, 4); pos += 4;
 
-    /* Copy the config to buffer and pad the rest with zeros */
-    memcpy(state->page_buffer, raw_config, sizeof(config_t));
-    memset(state->page_buffer + sizeof(config_t), 0, FLASH_PAGE_SIZE - sizeof(config_t));
+    /* TLV records for every writable field */
+    for (size_t i = 0; i < get_field_map_length(); i++) {
+        const field_map_t *f = get_field_map_index(i);
+        if (f->readonly)
+            continue;
+        if (pos + CONFIG_TLV_HDR_SIZE + f->len > FLASH_SECTOR_SIZE - CONFIG_FOOTER_SIZE)
+            break;
+        uint64_t val = field_read(state, f);
+        memcpy(buf + pos, &f->idx, 2); pos += 2;
+        buf[pos++] = (uint8_t)f->len;
+        memcpy(buf + pos, &val, f->len); pos += f->len;
+    }
 
-    /* Write the new config to flash */
-    write_flash_page((uint32_t)ADDR_CONFIG - XIP_BASE, state->page_buffer);
+    /* Sentinel */
+    buf[pos++] = 0;
+    buf[pos++] = 0;
+
+    /* CRC32 over everything written so far */
+    uint32_t crc = calc_crc32(buf, pos);
+    memcpy(buf + pos, &crc, 4); pos += 4;
+
+    /* Erase sector and write all pages */
+    uint32_t target_addr = (uint32_t)ADDR_CONFIG - XIP_BASE;
+    uint32_t ints = save_and_disable_interrupts();
+    flash_range_erase(target_addr, FLASH_SECTOR_SIZE);
+    flash_range_program(target_addr, config_sector_buffer, FLASH_SECTOR_SIZE);
+    restore_interrupts(ints);
+
+    /* Sync config to peer unless we are already receiving a sync from them */
+    if (!state->config_sync_in_progress) {
+        for (size_t i = 0; i < get_field_map_length(); i++) {
+            const field_map_t *f = get_field_map_index(i);
+            if (f->readonly)
+                continue;
+            uint64_t val = field_read(state, f);
+            uint8_t pkt[PACKET_DATA_LENGTH] = {0};
+            pkt[0] = (uint8_t)f->idx;
+            memcpy(&pkt[1], &val, f->len);
+            queue_packet(pkt, SET_VAL_MSG, PACKET_DATA_LENGTH);
+        }
+        send_value(0, SAVE_CONFIG_MSG);
+    }
+}
+
+/* Write a magic marker to the last page of FLASH_CONFIG so the next boot
+   knows we were directly flashed and should sync the peer. */
+void write_direct_flash_marker(void) {
+    uint8_t page[FLASH_PAGE_SIZE];
+    memset(page, 0, sizeof(page));
+    uint32_t magic = DIRECT_FLASH_MARKER_MAGIC;
+    memcpy(page, &magic, sizeof(magic));
+
+    uint32_t marker_addr = (uint32_t)ADDR_CONFIG - XIP_BASE + DIRECT_FLASH_MARKER_OFFSET;
+    uint32_t ints = save_and_disable_interrupts();
+    flash_range_program(marker_addr, page, FLASH_PAGE_SIZE);
+    restore_interrupts(ints);
+}
+
+/* Check for the direct-flash marker. If found, set flash_source and erase it
+   by saving config (which erases the whole sector, wiping the marker). */
+bool check_and_clear_direct_flash_marker(device_t *state) {
+    const uint8_t *marker_page = (const uint8_t *)ADDR_CONFIG + DIRECT_FLASH_MARKER_OFFSET;
+    uint32_t magic;
+    memcpy(&magic, marker_page, sizeof(magic));
+
+    if (magic != DIRECT_FLASH_MARKER_MAGIC)
+        return false;
+
+    /* Clear the marker by saving config (erases sector, rewrites config without marker) */
+    save_config(state);
+    return true;
 }
 
 void reset_config_timer(device_t *state) {

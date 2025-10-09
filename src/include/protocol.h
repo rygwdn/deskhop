@@ -61,4 +61,5 @@ typedef struct {
     type_e type;
     uint32_t len;
     size_t offset;
+    const char *name;
 } field_map_t;

@@ -15,7 +15,7 @@
 #include "misc.h"
 #include "screen.h"
 
-#define CURRENT_CONFIG_VERSION 8
+#define CURRENT_CONFIG_VERSION 9
 
 /*==============================================================================
  *  Configuration Data
@@ -32,7 +32,11 @@ extern const config_t default_config;
 extern const field_map_t api_field_map[];
 const field_map_t* get_field_map_entry(uint32_t);
 const field_map_t* get_field_map_index(uint32_t);
+const field_map_t* get_field_map_by_name(const char *name);
 size_t             get_field_map_length(void);
+
+uint64_t field_read(const device_t *state, const field_map_t *f);
+void     field_write(device_t *state, const field_map_t *f, uint64_t val);
 
 /*==============================================================================
  *  Configuration Management and Packet Processing
@@ -45,3 +49,5 @@ void reset_config_timer(device_t *);
 void save_config(device_t *);
 bool validate_packet(uart_packet_t *);
 void wipe_config(void);
+void write_direct_flash_marker(void);
+bool check_and_clear_direct_flash_marker(device_t *state);

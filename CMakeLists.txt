@@ -8,7 +8,6 @@ set(VERSION_MINOR 77)
 ## Release Type Selection
 option(DH_DEBUG "Build a debug version" OFF)
 option(DH_DEBUG_CDC_FLASH "Enable CDC command to trigger bootloader mode" OFF)
-option(DH_DEBUG_HID_DUMP "Enable HID report dumping to CDC serial" OFF)
 
 ## Hardware Configuration
 set(DP_PIN_DEFAULT 14 CACHE STRING "Default USB D+ Pin Number")
@@ -72,6 +71,7 @@ set(COMMON_SOURCES
   ${SRC_DIR}/usb.c
   ${SRC_DIR}/main.c
   ${SRC_DIR}/ramdisk.c
+  ${SRC_DIR}/config_file.c
   ${PICO_TINYUSB_PATH}/src/portable/raspberrypi/pio_usb/dcd_pio_usb.c
   ${PICO_TINYUSB_PATH}/src/portable/raspberrypi/pio_usb/hcd_pio_usb.c
 )
@@ -121,17 +121,13 @@ target_compile_definitions(${binary}
 
 ## Support building a debug version
 if (DH_DEBUG)
-  add_definitions(-DDH_DEBUG)  
+  add_definitions(-DDH_DEBUG)
 endif()
 
 if (DH_DEBUG_CDC_FLASH)
   add_definitions(-DDH_DEBUG_CDC_FLASH)
 endif()
 
-if (DH_DEBUG_HID_DUMP)
-  add_definitions(-DDH_DEBUG_HID_DUMP)
-endif()
-  
 target_include_directories(${binary} PUBLIC ${COMMON_INCLUDES})
 target_link_libraries(${binary} PUBLIC ${COMMON_LINK_LIBRARIES})
 

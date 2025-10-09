@@ -12,7 +12,6 @@
 
 /* Default configuration */
 const config_t default_config = {
-    .magic_header = 0xB00B1E5,
     .version = CURRENT_CONFIG_VERSION,
     .output[OUTPUT_A] =
         {
@@ -61,4 +60,33 @@ const config_t default_config = {
     .hotkey_toggle = HOTKEY_TOGGLE,
     .kbd_led_as_indicator = KBD_LED_AS_INDICATOR,
     .jump_threshold = JUMP_THRESHOLD,
+    .accel_curve = {
+        {2,  100},
+        {5,  110},
+        {15, 140},
+        {30, 190},
+        {45, 260},
+        {60, 340},
+        {70, 400},
+        {0,  0},
+    },
+    .devices = {
+        [0] = {
+            .vid = 0x047D,
+            .pid = 0x8018,
+            .invert_scroll = 1,
+            .use_accel_curve = 1,
+            .button_map = {2, 3, 0, 1, 0xFF, 0xFF, 0xFF, 0xFF},
+            .accel_curve = {
+                {6,  10},
+                {10, 30},
+                {15, 80},
+                {23, 100},
+                {30, 120},
+                {45, 200},
+                {60, 300},
+                {80, 400},
+            },
+        },
+    },
 };

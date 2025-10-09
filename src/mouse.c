@@ -15,7 +15,6 @@
 
 #define MACOS_SWITCH_MOVE_X 10
 #define MACOS_SWITCH_MOVE_COUNT 5
-#define ACCEL_POINTS 7
 
 /* Check if our upcoming mouse movement would result in having to switch outputs */
 enum screen_pos_e is_screen_switch_needed(int position, int offset) {
@@ -42,61 +41,63 @@ int32_t move_and_keep_on_screen(int position, int offset) {
     return position + offset;
 }
 
+static const device_config_t *find_device_config(const hid_interface_t *iface) {
+    for (int i = 0; i < MAX_DEVICE_CONFIGS; i++) {
+        const device_config_t *d = &global_state.config.devices[i];
+        if (d->vid == iface->vid && d->pid == iface->pid && (d->vid || d->pid))
+            return d;
+    }
+    return NULL;
+}
+
 /* Implement basic mouse acceleration based on actual 2D movement magnitude.
    Returns the acceleration factor to apply to both x and y components. */
-float calculate_mouse_acceleration_factor(int32_t offset_x, int32_t offset_y) {
-    const struct curve {
-        int value;
-        float factor;
-    } acceleration[ACCEL_POINTS] = {
-                   // 4 |                                        *
-        {2, 1},    //   |                                  *
-        {5, 1.1},  // 3 |
-        {15, 1.4}, //   |                       *
-        {30, 1.9}, // 2 |                *
-        {45, 2.6}, //   |        *
-        {60, 3.4}, // 1 |  *
-        {70, 4.0}, //    -------------------------------------------
-    };             //        10    20    30    40    50    60    70
-
+float calculate_mouse_acceleration_factor(int32_t offset_x, int32_t offset_y, hid_interface_t *iface) {
     if (offset_x == 0 && offset_y == 0)
         return 1.0;
 
     if (!global_state.config.enable_acceleration)
         return 1.0;
 
-    // Calculate the 2D movement magnitude
     const float movement_magnitude = sqrtf((float)(offset_x * offset_x) + (float)(offset_y * offset_y));
 
-    if (movement_magnitude <= acceleration[0].value)
-        return acceleration[0].factor;
+    const device_config_t *dev = find_device_config(iface);
+    const accel_point_t *curve = (dev && dev->use_accel_curve)
+                                 ? dev->accel_curve
+                                 : global_state.config.accel_curve;
 
-    if (movement_magnitude >= acceleration[ACCEL_POINTS-1].value)
-        return acceleration[ACCEL_POINTS-1].factor;
-
-    const struct curve *lower = NULL;
-    const struct curve *upper = NULL;
-
-    for (int i = 0; i < ACCEL_POINTS-1; i++) {
-        if (movement_magnitude < acceleration[i + 1].value) {
-            lower = &acceleration[i];
-            upper = &acceleration[i + 1];
+    /* Find the last valid (non-zero speed) point */
+    int n = 0;
+    for (int i = 0; i < ACCEL_CURVE_POINTS; i++) {
+        if (curve[i].speed == 0 && curve[i].factor == 0 && i > 0)
             break;
+        n = i + 1;
+    }
+    if (n == 0)
+        return 1.0;
+
+    if (movement_magnitude <= curve[0].speed)
+        return curve[0].factor / 100.0f;
+
+    if (movement_magnitude >= curve[n - 1].speed)
+        return curve[n - 1].factor / 100.0f;
+
+    for (int i = 0; i < n - 1; i++) {
+        if (movement_magnitude < curve[i + 1].speed) {
+            float lo_spd = curve[i].speed;
+            float hi_spd = curve[i + 1].speed;
+            float lo_fac = curve[i].factor / 100.0f;
+            float hi_fac = curve[i + 1].factor / 100.0f;
+            float t = (movement_magnitude - lo_spd) / (hi_spd - lo_spd);
+            return lo_fac + t * (hi_fac - lo_fac);
         }
     }
 
-    // Should never happen, but just in case
-    if (lower == NULL || upper == NULL)
-        return 1.0;
-
-    const float interpolation_pos = (movement_magnitude - lower->value) /
-                                  (upper->value - lower->value);
-
-    return lower->factor + interpolation_pos * (upper->factor - lower->factor);
+    return 1.0;
 }
 
 /* Returns LEFT if need to jump left, RIGHT if right, NONE otherwise */
-enum screen_pos_e update_mouse_position(device_t *state, mouse_values_t *values) {
+enum screen_pos_e update_mouse_position(device_t *state, mouse_values_t *values, hid_interface_t *iface) {
     output_t *current    = &state->config.output[state->active_output];
     uint8_t reduce_speed = 0;
 
@@ -105,9 +106,15 @@ enum screen_pos_e update_mouse_position(device_t *state, mouse_values_t *values)
         reduce_speed = MOUSE_ZOOM_SCALING_FACTOR;
 
     /* Calculate movement */
-    float acceleration_factor = calculate_mouse_acceleration_factor(values->move_x, values->move_y);
+    float acceleration_factor = calculate_mouse_acceleration_factor(values->move_x, values->move_y, iface);
     int offset_x = round(values->move_x * acceleration_factor * (current->speed_x >> reduce_speed));
     int offset_y = round(values->move_y * acceleration_factor * (current->speed_y >> reduce_speed));
+
+#ifdef DH_DEBUG
+    dh_debug_printf("mouse %04X:%04X rid=%d spd=%d accel=%.3f in=%d,%d out=%d,%d t=%llu\n",
+        iface->vid, iface->pid, iface->mouse.report_id, current->speed_x,
+        acceleration_factor, values->move_x, values->move_y, offset_x, offset_y, time_us_64());
+#endif
 
     /* Determine if our upcoming movement would stay within the screen */
     enum screen_pos_e switch_direction = is_screen_switch_needed(state->pointer_x, offset_x);
@@ -294,8 +301,25 @@ void extract_report_values(uint8_t *raw_report, int len, device_t *state, mouse_
     extract_value(uses_id, &values->wheel, &mouse->wheel, raw_report, len);
     extract_value(uses_id, &values->pan, &mouse->pan, raw_report, len);
 
-    if (!extract_value(uses_id, &values->buttons, &mouse->buttons, raw_report, len)) {
+    bool buttons_extracted = extract_value(uses_id, &values->buttons, &mouse->buttons, raw_report, len);
+    if (!buttons_extracted) {
         values->buttons = state->mouse_buttons;
+    }
+
+    const device_config_t *dev = find_device_config(iface);
+    if (dev) {
+        if (dev->invert_scroll)
+            values->wheel = -values->wheel;
+        if (buttons_extracted) {
+            uint8_t new_buttons = 0;
+            for (int i = 0; i < MAX_BUTTONS; i++) {
+                if ((values->buttons & (1 << i)) && dev->button_map[i] != 0xFF)
+                    new_buttons |= (1 << dev->button_map[i]);
+                else if ((values->buttons & (1 << i)) && dev->button_map[i] == 0xFF)
+                    new_buttons |= (1 << i);
+            }
+            values->buttons = new_buttons;
+        }
     }
 }
 
@@ -326,7 +350,7 @@ void process_mouse_report(uint8_t *raw_report, int len, uint8_t itf, hid_interfa
     extract_report_values(raw_report, len, state, &values, iface);
     debug_dump_hid_report(raw_report, len, 0, 0, iface, &values, NULL);
 
-    enum screen_pos_e switch_direction = update_mouse_position(state, &values);
+    enum screen_pos_e switch_direction = update_mouse_position(state, &values, iface);
 
     /* Create the report for the output PC based on the updated values */
     mouse_report_t report = create_mouse_report(state, &values);

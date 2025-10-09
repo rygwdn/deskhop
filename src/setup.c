@@ -214,6 +214,10 @@ void initial_setup(device_t *state) {
     /* Search the persistent storage sector in flash for valid config or use defaults */
     load_config(state);
 
+    /* Check if we were directly flashed (marker written before BOOTSEL reboot) */
+    if (check_and_clear_direct_flash_marker(state))
+        state->flash_source = FLASH_SOURCE_DIRECT;
+
     /* Init and enable the on-board LED GPIO as output */
     gpio_init(GPIO_LED_PIN);
     gpio_set_dir(GPIO_LED_PIN, GPIO_OUT);

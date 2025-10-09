@@ -49,8 +49,15 @@ void usb_device_task(device_t *state) {
 }
 
 void usb_host_task(device_t *state) {
-    if (tuh_inited())
-        tuh_task();
+    if (!tuh_inited())
+        return;
+    uint64_t t0 = time_us_64();
+    tuh_task();
+#ifdef DH_DEBUG
+    uint64_t dt = time_us_64() - t0;
+    if (dt > 5000)
+        dh_debug_printf("tuh_task stall: %llu us\n", dt);
+#endif
 }
 
 mouse_report_t *screensaver_pong(device_t *state) {
@@ -216,6 +223,7 @@ void firmware_upgrade_task(device_t *state) {
         else {
             state->_running_fw = _firmware_metadata;
             state->flash_source = FLASH_SOURCE_PEER;
+            dh_debug_printf("Firmware pull complete, rebooting\n");
             global_state.reboot_requested = true;
         }
     }

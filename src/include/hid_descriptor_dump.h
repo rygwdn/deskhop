@@ -13,7 +13,13 @@
 #include "main.h"
 #include "hid_parser.h"
 
-#if defined(DH_DEBUG) && defined(DH_DEBUG_HID_DUMP)
+#ifdef DH_DEBUG
+void dump_hid_tree(device_t *state);
+#else
+static inline void dump_hid_tree(device_t *state) { (void)state; }
+#endif
+
+#ifdef DH_DEBUG
 
 /* Print descriptor header and hex dump */
 void print_descriptor_header(uint8_t const *report, int desc_len, uint8_t board_role, uint8_t dev_addr, uint8_t instance, hid_interface_t *iface);
@@ -28,7 +34,6 @@ void debug_dump_hid_report(uint8_t const *report, uint16_t len, uint8_t dev_addr
 
 #else
 
-/* Stub versions when both DH_DEBUG and DH_DEBUG_HID_DUMP are not enabled */
 static inline void print_descriptor_header(uint8_t const *report, int desc_len, uint8_t board_role, uint8_t dev_addr, uint8_t instance, hid_interface_t *iface) {
     (void)report; (void)desc_len; (void)board_role; (void)dev_addr; (void)instance; (void)iface;
 }

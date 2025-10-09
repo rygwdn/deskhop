@@ -13,7 +13,35 @@
 #include "hid_parser.h"
 #include "hid_descriptor_dump.h"
 
-#if defined(DH_DEBUG) && defined(DH_DEBUG_HID_DUMP)
+#ifdef DH_DEBUG
+
+void dump_hid_tree(device_t *state) {
+    dh_debug_printf("=== HID device tree ===\n");
+    bool any = false;
+    for (int d = 0; d < MAX_DEVICES; d++) {
+        for (int ifc = 0; ifc < MAX_INTERFACES; ifc++) {
+            uint8_t idx = state->iface_map[d][ifc];
+            if (idx == IFACE_MAP_NONE)
+                continue;
+            any = true;
+            hid_interface_t *iface = &state->iface_pool[idx];
+            dh_debug_printf("  dev=%d ifc=%d VID=0x%04X PID=0x%04X"
+                            " keyboards=%d mouse=%s consumer=%s\n",
+                d + 1, ifc,
+                iface->vid, iface->pid,
+                iface->num_keyboards,
+                iface->mouse.is_found ? "yes" : "no",
+                iface->consumer.val.size ? "yes" : "no");
+        }
+    }
+    if (!any)
+        dh_debug_printf("  (no devices)\n");
+    dh_debug_printf("======================\n");
+}
+
+#endif
+
+#ifdef DH_DEBUG
 
 #define MAX_REPORT_THROTTLE_ENTRIES 16
 typedef struct {
@@ -41,7 +69,7 @@ static void print_hex_dump(uint8_t const *data, int len) {
 
 void print_descriptor_header(uint8_t const *report, int desc_len, uint8_t board_role,
                              uint8_t dev_addr, uint8_t instance, hid_interface_t *iface) {
-    if (report == NULL || desc_len <= 0) {
+    if (!global_state.hid_dump_enabled || report == NULL || desc_len <= 0) {
         return;
     }
 
@@ -86,7 +114,7 @@ void debug_print_extracted_mapping(const char *name, const report_val_t *val) {
 void debug_dump_hid_report(uint8_t const *report, uint16_t len, uint8_t dev_addr,
                            uint8_t instance, hid_interface_t *iface,
                            mouse_values_t *mouse_vals, hid_keyboard_report_t *kbd_report) {
-    if (!tud_cdc_connected() || report == NULL || iface == NULL || len == 0)
+    if (!global_state.hid_dump_enabled || !tud_cdc_connected() || report == NULL || iface == NULL || len == 0)
         return;
 
     uint8_t report_id = 0;
@@ -115,7 +143,7 @@ void debug_dump_hid_report(uint8_t const *report, uint16_t len, uint8_t dev_addr
         entry->skipped_count = 0;
     }
 
-    if (entry != NULL) {
+    if (!global_state.hid_dump_all && entry != NULL) {
         if (current_time - entry->last_dump_time < 1000000) {
             entry->skipped_count++;
             return;
