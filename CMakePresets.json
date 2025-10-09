@@ -1,0 +1,116 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 19,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "mac-base",
+      "hidden": true,
+      "description": "Base configuration for macOS builds",
+      "binaryDir": "${sourceDir}/build/mac",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+      "cacheVariables": {
+        "ENABLE_USER_OVERRIDES": "ON",
+        "PICO_SDK_PATH": "${sourceDir}/pico-sdk",
+        "AUTO_BUMP_VERSION": "ON"
+      }
+    },
+    {
+      "name": "mac-release",
+      "inherits": "mac-base",
+      "description": "macOS release build",
+      "cacheVariables": {
+        "DH_DEBUG": "OFF"
+      }
+    },
+    {
+      "name": "mac-debug",
+      "inherits": "mac-base",
+      "description": "macOS debug build",
+      "cacheVariables": {
+        "DH_DEBUG": "ON"
+      }
+    },
+    {
+      "name": "docker-base",
+      "hidden": true,
+      "description": "Base configuration for Docker builds",
+      "binaryDir": "${sourceDir}/build",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "ENABLE_USER_OVERRIDES": "ON",
+        "AUTO_BUMP_VERSION": "ON"
+      }
+    },
+    {
+      "name": "docker-release",
+      "inherits": "docker-base",
+      "description": "Docker release build",
+      "cacheVariables": {
+        "DH_DEBUG": "OFF"
+      }
+    },
+    {
+      "name": "docker-debug",
+      "inherits": "docker-base",
+      "description": "Docker debug build",
+      "cacheVariables": {
+        "DH_DEBUG": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "mac-release",
+      "configurePreset": "mac-release",
+      "description": "Build macOS release",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "mac-debug",
+      "configurePreset": "mac-debug",
+      "description": "Build macOS debug",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "docker-release",
+      "configurePreset": "docker-release",
+      "description": "Build Docker release",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "docker-debug",
+      "configurePreset": "docker-debug",
+      "description": "Build Docker debug",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    }
+  ]
+}
+

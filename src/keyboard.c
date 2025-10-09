@@ -17,6 +17,7 @@
  * ==================================================== */
 
 hotkey_combo_t hotkeys[] = {
+#if false
     /* Main keyboard switching hotkey */
     {.modifier       = HOTKEY_MODIFIER,
      .keys           = {HOTKEY_TOGGLE},
@@ -40,14 +41,14 @@ hotkey_combo_t hotkeys[] = {
      .action_handler = &switchlock_hotkey_handler},
 
     /* Screen lock */
-    {.modifier       = KEYBOARD_MODIFIER_RIGHTCTRL,
+    {.modifier       = KEYBOARD_MODIFIER_LEFTGUI | KEYBOARD_MODIFIER_LEFTSHIFT,
      .keys           = {HID_KEY_L},
      .key_count      = 1,
      .acknowledge    = true,
      .action_handler = &screenlock_hotkey_handler},
 
     /* Toggle gaming mode */
-    {.modifier       = KEYBOARD_MODIFIER_LEFTCTRL | KEYBOARD_MODIFIER_RIGHTSHIFT,
+    {.modifier       = KEYBOARD_MODIFIER_LEFTCTRL | KEYBOARD_MODIFIER_LEFTALT | KEYBOARD_MODIFIER_LEFTGUI | KEYBOARD_MODIFIER_LEFTSHIFT,
      .keys           = {HID_KEY_G},
      .key_count      = 1,
      .acknowledge    = true,
@@ -107,7 +108,9 @@ hotkey_combo_t hotkeys[] = {
      .keys           = {HID_KEY_B},
      .key_count      = 1,
      .acknowledge    = true,
-     .action_handler = &fw_upgrade_hotkey_handler_B}};
+     .action_handler = &fw_upgrade_hotkey_handler_B}
+#endif
+};
 
 /* ============================================================ *
  * Detect if any hotkeys were pressed

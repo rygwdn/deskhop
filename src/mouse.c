@@ -19,7 +19,7 @@
 
 #define MACOS_SWITCH_MOVE_X 10
 #define MACOS_SWITCH_MOVE_COUNT 5
-#define ACCEL_POINTS 7
+#define ACCEL_POINTS 8
 
 /* Check if our upcoming mouse movement would result in having to switch outputs */
 enum screen_pos_e is_screen_switch_needed(int position, int offset) {
@@ -49,19 +49,20 @@ int32_t move_and_keep_on_screen(int position, int offset) {
 /* Implement basic mouse acceleration based on actual 2D movement magnitude.
    Returns the acceleration factor to apply to both x and y components. */
 float calculate_mouse_acceleration_factor(int32_t offset_x, int32_t offset_y) {
+    // TODO: store curve in config
     const struct curve {
         int value;
         float factor;
     } acceleration[ACCEL_POINTS] = {
-                   // 4 |                                        *
-        {2, 1},    //   |                                  *
-        {5, 1.1},  // 3 |
-        {15, 1.4}, //   |                       *
-        {30, 1.9}, // 2 |                *
-        {45, 2.6}, //   |        *
-        {60, 3.4}, // 1 |  *
-        {70, 4.0}, //    -------------------------------------------
-    };             //        10    20    30    40    50    60    70
+        {6,  0.1},
+        {10, 0.3},
+        {15, 0.8},
+        {23, 1.0},
+        {30, 1.2},
+        {45, 2.0},
+        {60, 3.0},
+        {80, 4.0},
+    };
 
     if (offset_x == 0 && offset_y == 0)
         return 1.0;

@@ -1,0 +1,35 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cmake",
+			"label": "CMake: build",
+			"command": "build",
+			"targets": [
+				"all"
+			],
+			"preset": "mac-debug",
+			"group": "build",
+			"problemMatcher": [],
+			"detail": "CMake template build task"
+		},
+		{
+			"type": "shell",
+			"label": "Flash",
+			"command": "./flash.sh",
+			"group": "build",
+			"problemMatcher": [],
+			"detail": "Flash the firmware"
+		},
+		{
+			"label": "Build and Flash",
+			"dependsOn": [
+				"CMake: build",
+			],
+			"group": "build",
+			"command": "./flash.sh",
+			"problemMatcher": [],
+			"detail": "Build the project and then flash the firmware"
+		}
+	]
+}

@@ -1,0 +1,32 @@
+{
+    "configurations": [
+        {
+            "name": "rpi",
+            "includePath": [
+                "${workspaceFolder}/src/include",
+                "${workspaceFolder}/pico-sdk/src/common/pico_base/include",
+                "${workspaceFolder}/pico-sdk/src/rp2_common/pico_platform/include",
+                "${workspaceFolder}/pico-sdk/src/rp2_common/hardware_base/include",
+                "${workspaceFolder}/pico-sdk/src/rp2040/hardware_regs/include",
+                "${workspaceFolder}/pico-sdk/src/boards/include",
+                "${workspaceFolder}/pico-sdk/src/rp2_common/pico_stdio/include",
+                "${workspaceFolder}/pico-sdk/src/common/pico_stdlib/include",
+                "${workspaceFolder}/pico-sdk/src/common/pico_sync/include",
+                "${workspaceFolder}/pico-sdk/lib/tinyusb/src"
+            ],
+            "defines": [
+                "DH_DEBUG=1"
+            ],
+            "macFrameworkPath": [
+                "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks",
+                "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/SubFrameworks"
+            ],
+            "compilerPath": "/opt/homebrew/bin/arm-none-eabi-gcc",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "linux-gcc-arm",
+            "configurationProvider": "ms-vscode.cmake-tools"
+        }
+    ],
+    "version": 4
+}
