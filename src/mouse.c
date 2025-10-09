@@ -12,6 +12,10 @@
 #include "main.h"
 #include <math.h>
 
+#ifdef ENABLE_USER_OVERRIDES
+#include "user_overrides.h"
+#endif
+
 #define MACOS_SWITCH_MOVE_X 10
 #define MACOS_SWITCH_MOVE_COUNT 5
 #define ACCEL_POINTS 7
@@ -292,9 +296,15 @@ void extract_report_values(uint8_t *raw_report, int len, device_t *state, mouse_
     extract_value(uses_id, &values->wheel, &mouse->wheel, raw_report, len);
     extract_value(uses_id, &values->pan, &mouse->pan, raw_report, len);
 
-    if (!extract_value(uses_id, &values->buttons, &mouse->buttons, raw_report, len)) {
+    bool buttons_extracted = extract_value(uses_id, &values->buttons, &mouse->buttons, raw_report, len);
+    if (!buttons_extracted) {
         values->buttons = state->mouse_buttons;
     }
+
+#ifdef ENABLE_USER_OVERRIDES
+    // Apply device-specific quirks (wheel inversion, button remapping, etc.)
+    apply_device_specific_quirks(values, iface, buttons_extracted);
+#endif
 }
 
 mouse_report_t create_mouse_report(device_t *state, mouse_values_t *values) {
