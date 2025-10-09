@@ -9,6 +9,7 @@ set(VERSION_MINOR 73)
 option(DH_DEBUG "Build a debug version" OFF)
 option(DH_DEBUG_CDC_FLASH "Enable CDC command to trigger bootloader mode" OFF)
 option(DH_DEBUG_HID_DUMP "Enable HID report dumping to CDC serial" OFF)
+option(ENABLE_USER_OVERRIDES "Enable user-specific device overrides" OFF)
 
 ## Hardware Configuration
 set(DP_PIN_DEFAULT 14 CACHE STRING "Default USB D+ Pin Number")
@@ -76,6 +77,11 @@ set(COMMON_SOURCES
   ${PICO_TINYUSB_PATH}/src/portable/raspberrypi/pio_usb/hcd_pio_usb.c
 )
 
+## Conditionally add user overrides
+if(ENABLE_USER_OVERRIDES AND EXISTS "${SRC_DIR}/user_overrides.c")
+  list(APPEND COMMON_SOURCES ${SRC_DIR}/user_overrides.c)
+endif()
+
 ## Include Directories
 set(COMMON_INCLUDES
   ${SRC_DIR}/include
@@ -121,7 +127,7 @@ target_compile_definitions(${binary}
 
 ## Support building a debug version
 if (DH_DEBUG)
-  add_definitions(-DDH_DEBUG)  
+  add_definitions(-DDH_DEBUG)
 endif()
 
 if (DH_DEBUG_CDC_FLASH)
@@ -131,7 +137,12 @@ endif()
 if (DH_DEBUG_HID_DUMP)
   add_definitions(-DDH_DEBUG_HID_DUMP)
 endif()
-  
+
+## Support user overrides
+if (ENABLE_USER_OVERRIDES)
+  add_definitions(-DENABLE_USER_OVERRIDES)
+endif()
+
 target_include_directories(${binary} PUBLIC ${COMMON_INCLUDES})
 target_link_libraries(${binary} PUBLIC ${COMMON_LINK_LIBRARIES})
 
