@@ -227,6 +227,9 @@ void initial_setup(device_t *state) {
     /* Initialize and configure UART */
     serial_init();
 
+    /* Mark all interface map entries as unallocated */
+    memset(state->iface_map, IFACE_MAP_NONE, sizeof(state->iface_map));
+
     /* Initialize keyboard and mouse queues */
     queue_init(&state->kbd_queue, sizeof(hid_keyboard_report_t), KBD_QUEUE_LENGTH);
     queue_init(&state->mouse_queue, sizeof(mouse_report_t), MOUSE_QUEUE_LENGTH);

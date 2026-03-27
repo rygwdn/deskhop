@@ -114,7 +114,8 @@ typedef struct {
     queue_t mouse_queue;   // Queue that stores mouse reports
     queue_t uart_tx_queue; // Queue that stores outgoing packets
 
-    hid_interface_t iface[MAX_DEVICES][MAX_INTERFACES]; // Store info about HID interfaces
+    hid_interface_t iface_pool[MAX_IFACE_POOL];                  // Flat pool of HID interface slots
+    uint8_t         iface_map[MAX_DEVICES][MAX_INTERFACES];      // Maps (dev, instance) -> pool index
     uart_packet_t in_packet;
 
     /* DMA */

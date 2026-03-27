@@ -14,6 +14,57 @@
 _Static_assert(MAX_DEVICES <= CFG_TUH_DEVICE_MAX,
                "MAX_DEVICES must not exceed CFG_TUH_DEVICE_MAX");
 
+static inline bool iface_addr_valid(uint8_t dev_addr, uint8_t instance) {
+    return dev_addr != 0 && dev_addr <= MAX_DEVICES && instance < MAX_INTERFACES;
+}
+
+/* Look up the interface for a given (dev_addr, instance), returns NULL if not mapped */
+static hid_interface_t *get_iface(device_t *state, uint8_t dev_addr, uint8_t instance) {
+    if (!iface_addr_valid(dev_addr, instance))
+        return NULL;
+    uint8_t idx = state->iface_map[dev_addr - 1][instance];
+    if (idx == IFACE_MAP_NONE)
+        return NULL;
+    return &state->iface_pool[idx];
+}
+
+/* Allocate a pool slot for (dev_addr, instance), returns NULL if pool is full.
+   If already mapped (e.g. remount without unmount), resets and returns the existing slot.
+   Scans the pool for a slot not referenced by any map entry. */
+static hid_interface_t *alloc_iface(device_t *state, uint8_t dev_addr, uint8_t instance) {
+    if (!iface_addr_valid(dev_addr, instance))
+        return NULL;
+    /* Handle remount: reuse the existing slot rather than leaking it */
+    uint8_t existing = state->iface_map[dev_addr - 1][instance];
+    if (existing != IFACE_MAP_NONE) {
+        memset(&state->iface_pool[existing], 0, sizeof(hid_interface_t));
+        return &state->iface_pool[existing];
+    }
+    for (int i = 0; i < MAX_IFACE_POOL; i++) {
+        bool used = false;
+        for (int d = 0; d < MAX_DEVICES && !used; d++)
+            for (int ifc = 0; ifc < MAX_INTERFACES && !used; ifc++)
+                used = (state->iface_map[d][ifc] == (uint8_t)i);
+        if (!used) {
+            state->iface_map[dev_addr - 1][instance] = (uint8_t)i;
+            memset(&state->iface_pool[i], 0, sizeof(hid_interface_t));
+            return &state->iface_pool[i];
+        }
+    }
+    return NULL;
+}
+
+/* Release the pool slot for (dev_addr, instance) */
+static void free_iface(device_t *state, uint8_t dev_addr, uint8_t instance) {
+    if (!iface_addr_valid(dev_addr, instance))
+        return;
+    uint8_t idx = state->iface_map[dev_addr - 1][instance];
+    if (idx == IFACE_MAP_NONE)
+        return;
+    state->iface_map[dev_addr - 1][instance] = IFACE_MAP_NONE;
+    memset(&state->iface_pool[idx], 0, sizeof(hid_interface_t));
+}
+
 /* ================================================== *
  * ===========  TinyUSB Device Callbacks  =========== *
  * ================================================== */
@@ -122,11 +173,6 @@ void tud_cdc_rx_cb(uint8_t itf) {
 void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance) {
     uint8_t itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 
-    if (dev_addr > MAX_DEVICES || instance >= MAX_INTERFACES)
-        return;
-
-    hid_interface_t *iface = &global_state.iface[dev_addr-1][instance];
-
     switch (itf_protocol) {
         case HID_ITF_PROTOCOL_KEYBOARD:
             global_state.keyboard_connected = false;
@@ -137,37 +183,30 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance) {
             break;
     }
 
-    /* Also clear the interface structure, otherwise plugging something else later
-       might be a fun (and confusing) experience */
-    memset(iface, 0, sizeof(hid_interface_t));
+    free_iface(&global_state, dev_addr, instance);
 }
 
 void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_report, uint16_t desc_len) {
     uint8_t itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 
-    if (dev_addr > MAX_DEVICES || instance >= MAX_INTERFACES)
+    hid_interface_t *iface = alloc_iface(&global_state, dev_addr, instance);
+    if (iface == NULL)
         return;
-
-    /* Get interface information */
-    hid_interface_t *iface = &global_state.iface[dev_addr-1][instance];
 
     iface->protocol = tuh_hid_get_protocol(dev_addr, instance);
 
     /* Get device VID/PID for device-specific handling */
     tuh_vid_pid_get(dev_addr, &iface->vid, &iface->pid);
 
-    /* Safeguard against memory corruption in case the number of instances exceeds our maximum */
-    if (instance >= MAX_INTERFACES)
-        return;
-
-
     /* Parse the report descriptor into our internal structure. */
     parse_report_descriptor(iface, desc_report, desc_len, BOARD_ROLE, dev_addr, instance);
 
     switch (itf_protocol) {
         case HID_ITF_PROTOCOL_KEYBOARD:
-            if (global_state.config.enforce_ports && BOARD_ROLE == OUTPUT_B)
+            if (global_state.config.enforce_ports && BOARD_ROLE == OUTPUT_B) {
+                free_iface(&global_state, dev_addr, instance);
                 return;
+            }
 
             if (global_state.config.force_kbd_boot_protocol)
                 tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_BOOT);
@@ -179,8 +218,10 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
             break;
 
         case HID_ITF_PROTOCOL_MOUSE:
-            if (global_state.config.enforce_ports && BOARD_ROLE == OUTPUT_A)
+            if (global_state.config.enforce_ports && BOARD_ROLE == OUTPUT_A) {
+                free_iface(&global_state, dev_addr, instance);
                 return;
+            }
 
             if (global_state.config.force_mouse_boot_mode) {
                 /* User requested boot mode - simpler protocol for compatibility.
@@ -220,10 +261,9 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *desc_re
 void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const *report, uint16_t len) {
     uint8_t const itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 
-    if (dev_addr > MAX_DEVICES || instance >= MAX_INTERFACES)
+    hid_interface_t *iface = get_iface(&global_state, dev_addr, instance);
+    if (iface == NULL)
         return;
-
-    hid_interface_t *iface = &global_state.iface[dev_addr-1][instance];
 
     /* Calculate a device index that distinguishes between different devices
        while staying within the bounds of MAX_DEVICES.
@@ -279,9 +319,9 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 
 /* Set protocol in a callback. This is tied to an interface, not a specific report ID */
 void tuh_hid_set_protocol_complete_cb(uint8_t dev_addr, uint8_t idx, uint8_t protocol) {
-    if (dev_addr > MAX_DEVICES || idx > MAX_INTERFACES)
+    hid_interface_t *iface = get_iface(&global_state, dev_addr, idx);
+    if (iface == NULL)
         return;
 
-    hid_interface_t *iface = &global_state.iface[dev_addr-1][idx];
     iface->protocol = protocol;
 }

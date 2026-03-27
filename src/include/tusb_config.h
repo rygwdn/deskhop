@@ -149,7 +149,8 @@ extern int dh_debug_printf(const char *format, ...);
 #define CFG_TUH_HUB 1
 
 // Maximum number of connected devices (excluding the hub itself).
-#define CFG_TUH_DEVICE_MAX (CFG_TUH_HUB ? 4 : 1) // Hub typically has 4 ports
+// 8 = hub with up to 7 ports, plus one directly attached device.
+#define CFG_TUH_DEVICE_MAX (CFG_TUH_HUB ? 8 : 1)
 
 // Maximum number of HID instances.
 #define CFG_TUH_HID               3 * CFG_TUH_DEVICE_MAX

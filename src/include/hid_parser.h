@@ -20,8 +20,10 @@
 #define HID_DEFAULT_NUM_COLLECTIONS 16
 #define HID_MAX_USAGES              128
 #define MAX_CC_BUTTONS              16
-#define MAX_DEVICES                 4
+#define MAX_DEVICES                 8
 #define MAX_INTERFACES              12  // Per device; allows for complex devices like QMK
+#define MAX_IFACE_POOL              (MAX_DEVICES * MAX_INTERFACES / 2) // Shared pool; avg 6 ifaces/device
+#define IFACE_MAP_NONE              0xFF
 #define MAX_KEYS                    32
 #define MAX_REPORTS                 24
 #define MAX_KEYBOARDS               5
