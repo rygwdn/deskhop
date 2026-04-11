@@ -194,6 +194,7 @@ void switch_virtual_desktop_macos(device_t *state, int direction) {
      * 2. Send relative mouse movement one or two pixels in the direction of movement to get
      *    the cursor onto the next screen
      */
+
     mouse_report_t edge_position = {
         .x = (direction == LEFT) ? MIN_SCREEN_COORD : MAX_SCREEN_COORD,
         .y = MAX_SCREEN_COORD / 2,
@@ -202,10 +203,13 @@ void switch_virtual_desktop_macos(device_t *state, int direction) {
     };
 
     uint16_t move = (direction == LEFT) ? -MACOS_SWITCH_MOVE_X : MACOS_SWITCH_MOVE_X;
+    /* macOS treats the absolute and relative interfaces as separate devices. Sending buttons
+     * on the relative interface while buttons are held on the absolute interface causes macOS
+     * to see conflicting button state, leaving the button stuck on the new space. */
     mouse_report_t move_relative_one = {
         .x = move,
         .mode = RELATIVE,
-        .buttons = state->mouse_buttons,
+        .buttons = 0,
     };
 
     output_mouse_report(&edge_position, state);
