@@ -171,6 +171,9 @@ void tud_cdc_rx_cb(uint8_t itf) {
         dh_debug_printf("firmware version: %u, peer version: %u\n",
             global_state._running_fw.version,
             global_state._peer_fw_version);
+        dh_debug_printf("config_mode=%d scratch[5]=%08lx scratch[6]=%08lx\n",
+            global_state.config_mode_active,
+            watchdog_hw->scratch[5], watchdog_hw->scratch[6]);
     }
 
     if (count >= 3 && memcmp(buf, "hid", 3) == 0) {
@@ -193,6 +196,17 @@ void tud_cdc_rx_cb(uint8_t itf) {
         global_state.hid_dump_enabled = true;
         global_state.hid_dump_all = true;
         dh_debug_printf("HID dump all enabled (no throttling)\n");
+    }
+
+    if (count >= 6 && memcmp(buf, "config", 6) == 0) {
+        if (!global_state.config_mode_active) {
+            watchdog_hw->scratch[5] = MAGIC_WORD_1;
+            watchdog_hw->scratch[6] = MAGIC_WORD_2;
+            dh_debug_printf("Config mode: scratch[5]=%08lx scratch[6]=%08lx, rebooting...\n",
+                watchdog_hw->scratch[5], watchdog_hw->scratch[6]);
+        }
+        release_all_keys(&global_state);
+        global_state.reboot_requested = true;
     }
 }
 
