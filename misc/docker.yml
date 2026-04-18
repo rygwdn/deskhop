@@ -5,3 +5,10 @@ services:
       context: .
     volumes:
       - ..:/deskhop:z
+  build_container_privileged:
+    image: deskhop-build
+    build:
+      context: .
+    volumes:
+      - ..:/deskhop:z
+    privileged: true
