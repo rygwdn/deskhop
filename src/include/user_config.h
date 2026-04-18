@@ -123,6 +123,7 @@
  * SCREENSAVER_{A|B}_MODE: DISABLED
  *                         PONG
  *                         JITTER
+ *                         KEEPALIVE  (jitter inactive output while peer is actively being used)
  *
  * */
 

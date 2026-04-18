@@ -368,6 +368,12 @@ void handle_response_byte_msg(uart_packet_t *packet, device_t *state) {
 /* Process a request to read a firmware package from flash */
 void handle_heartbeat_msg(uart_packet_t *packet, device_t *state) {
     uint16_t other_running_version = packet->data16[0];
+    uint16_t peer_recently_active  = packet->data16[1];
+
+    /* Update our local record of when the peer last had activity.
+       Used by KEEPALIVE screensaver mode to jitter only while peer is in use. */
+    if (peer_recently_active)
+        state->peer_last_activity_us = time_us_64();
 
     if (other_running_version != state->_peer_fw_version) {
         uint16_t prev = state->_peer_fw_version;

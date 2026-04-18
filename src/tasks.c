@@ -93,6 +93,7 @@ void screensaver_task(device_t *state) {
         0,        /* DISABLED, unused index 0 */
         5000,     /* PONG, move mouse every 5 ms for a high framerate */
         10000000, /* JITTER, once every 10 sec is more than enough */
+        10000000, /* KEEPALIVE, same rate as jitter */
     };
     static int last_pointer_move = 0;
     screensaver_t *screensaver = &state->config.output[BOARD_ROLE].screensaver;
@@ -102,18 +103,34 @@ void screensaver_task(device_t *state) {
     if (screensaver->mode == DISABLED)
         return;
 
-    /* System is still not idle for long enough to activate or screensaver mode is not supported */
-    if (inactivity_period < screensaver->idle_time_us || screensaver->mode > MAX_SS_VAL)
+    /* Mode sanity check */
+    if (screensaver->mode > MAX_SS_VAL)
         return;
 
-    /* We exceeded the maximum permitted screensaver runtime */
-    if (screensaver->max_time_us
-        && inactivity_period > (screensaver->max_time_us + screensaver->idle_time_us))
-        return;
+    /* KEEPALIVE skips the local inactivity checks — it uses peer activity instead (checked below) */
+    if (screensaver->mode != KEEPALIVE) {
+        /* System is still not idle for long enough to activate */
+        if (inactivity_period < screensaver->idle_time_us)
+            return;
+
+        /* We exceeded the maximum permitted screensaver runtime */
+        if (screensaver->max_time_us
+            && inactivity_period > (screensaver->max_time_us + screensaver->idle_time_us))
+            return;
+    }
 
     /* If we're the selected output and we can only run on inactive output, nothing to do here. */
     if (screensaver->only_if_inactive && CURRENT_BOARD_IS_ACTIVE_OUTPUT)
         return;
+
+    /* KEEPALIVE mode: only run while peer has been active recently.
+       idle_time_us is repurposed as the "peer active window" — how long after the last
+       peer heartbeat we continue to jitter. Defaults to 5s if not configured. */
+    if (screensaver->mode == KEEPALIVE) {
+        uint64_t peer_window = screensaver->idle_time_us ? screensaver->idle_time_us : _SEC(5);
+        if (time_us_64() - state->peer_last_activity_us > peer_window)
+            return;
+    }
 
     /* We're active! Now check if it's time to move the cursor yet. */
     if (time_us_32() - last_pointer_move < delays[screensaver->mode])
@@ -131,6 +148,10 @@ void screensaver_task(device_t *state) {
             break;
 
         case JITTER:
+            report = screensaver_jitter(state);
+            break;
+
+        case KEEPALIVE:
             report = screensaver_jitter(state);
             break;
 
@@ -171,10 +192,15 @@ void heartbeat_output_task(device_t *state) {
                                    ? FIRMWARE_MAGIC_VERSION
                                    : state->_running_fw.version;
 
+    /* Pack a flag indicating whether this board has seen recent activity.
+       Using data16[1] to carry this; data16[0] = version, data16[2] = active_output. */
+    uint16_t recently_active = (time_us_64() - state->last_activity[BOARD_ROLE] < _SEC(5)) ? 1 : 0;
+
     uart_packet_t packet = {
         .type = HEARTBEAT_MSG,
         .data16 = {
             [0] = advertised_version,
+            [1] = recently_active,
             [2] = state->active_output,
         },
     };

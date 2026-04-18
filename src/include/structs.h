@@ -112,6 +112,7 @@ typedef struct {
 
     uint8_t keyboard_leds[NUM_SCREENS];  // State of keyboard LEDs (index 0 = A, index 1 = B)
     uint64_t last_activity[NUM_SCREENS]; // Timestamp of the last input activity (-||-)
+    uint64_t peer_last_activity_us;      // Local timestamp of when peer last reported activity (via heartbeat)
     uint64_t core1_last_loop_pass;       // Timestamp of last core1 loop execution
     uint8_t active_output;               // Currently selected output (0 = A, 1 = B)
     uint8_t board_role;                  // Which board are we running on? (0 = A, 1 = B, etc.)
@@ -200,7 +201,8 @@ enum screensaver_mode_e {
     DISABLED   = 0,
     PONG       = 1,
     JITTER     = 2,
-    MAX_SS_VAL = JITTER,
+    KEEPALIVE  = 3, // Jitter inactive output while peer is active (keeps inactive host awake)
+    MAX_SS_VAL = KEEPALIVE,
 };
 
 extern const config_t default_config;
